@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 
 from humantext.core.analysis import analyze_text
+from humantext.core.segmentation import sentence_spans
 from humantext.core.models import AnalysisResult, RewriteChange, RewriteResult
 
 
@@ -96,6 +97,7 @@ def rewrite_text(text: str, mode: str = "minimal") -> RewriteResult:
             updated, strategy_changes = _apply_strategy(updated, strategy, finding.signal_code)
             changes.extend(strategy_changes)
 
+    updated = _polish_sentences(updated)
     updated = _normalize_whitespace(updated)
     warnings = _build_warnings(analysis, changes)
     return RewriteResult(output_text=updated, changes=changes, warnings=warnings, analysis=analysis)
@@ -121,6 +123,28 @@ def _apply_strategy(text: str, strategy: str, signal_code: str) -> tuple[str, li
             updated = new_text
     return updated, changes
 
+
+
+def _polish_sentences(text: str) -> str:
+    if not text.strip():
+        return text
+    polished = text
+    for span in reversed(sentence_spans(text)):
+        sentence = polished[span.start_offset:span.end_offset]
+        cleaned = _clean_sentence(sentence)
+        polished = polished[:span.start_offset] + cleaned + polished[span.end_offset:]
+    return polished
+
+
+def _clean_sentence(sentence: str) -> str:
+    sentence = sentence.strip()
+    sentence = re.sub(r"^(and|but)\s+", "", sentence, flags=re.IGNORECASE)
+    sentence = re.sub(r"\bthis reflects documented changes\b", "This describes documented changes", sentence, flags=re.IGNORECASE)
+    sentence = re.sub(r"\bthis is a concrete change\b", "This describes a concrete change", sentence, flags=re.IGNORECASE)
+    sentence = re.sub(r"\bthis is concrete change\b", "This describes a concrete change", sentence, flags=re.IGNORECASE)
+    if sentence and sentence[0].islower():
+        sentence = sentence[0].upper() + sentence[1:]
+    return sentence
 
 def _normalize_whitespace(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)

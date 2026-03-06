@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Changed
+
+- Added a stdio MCP adapter with tool dispatch and shared version metadata for local agent/editor integration.
+- Added sentence polishing after rewrite strategy application so rewritten output recovers cleaner sentence starts.
+
 
 ## [0.1.1] - 2026-03-06
 

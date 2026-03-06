@@ -36,6 +36,7 @@ class AnalysisTests(unittest.TestCase):
         rewritten = rewrite_text("Experts argue that this reflects broader trends.")
         self.assertNotIn("Experts argue", rewritten.output_text)
         self.assertIn("documented changes", rewritten.output_text)
+        self.assertTrue(rewritten.output_text.startswith("This"))
         self.assertEqual(rewritten.warnings, [])
 
 
