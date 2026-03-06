@@ -9,6 +9,7 @@ Everything else derives from that file:
 - Python package metadata
 - `humantext version`
 - any future server `/version` endpoint or MCP metadata response
+- `humantext.mcp.get_server_metadata()` responses
 - GitHub release tags
 - `Changelog.md` release sections
 

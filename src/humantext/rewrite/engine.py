@@ -18,10 +18,25 @@ class StrategyRule:
 
 
 STRATEGY_RULES: tuple[StrategyRule, ...] = (
-    StrategyRule("remove_teacherly_preface", r"\bIt is important to note that\s*", "", "Removed teacherly framing so the sentence states the point directly."),
+    StrategyRule(
+        "remove_teacherly_preface",
+        r"\bIt is important to note that\s*",
+        "",
+        "Removed teacherly framing so the sentence states the point directly.",
+    ),
     StrategyRule("remove_teacherly_preface", r"\bWorth noting,?\s*", "", "Removed teacherly preface."),
-    StrategyRule("replace_canned_transition", r"(?m)^\s*(Additionally|Furthermore),\s*", "", "Dropped a stock transition at sentence start."),
-    StrategyRule("delete_redundant_summary", r"(?m)^\s*(Overall|In summary|In conclusion|To summarize),\s*", "", "Removed summary framing that usually repeats the paragraph."),
+    StrategyRule(
+        "replace_canned_transition",
+        r"(?m)^\s*(Additionally|Furthermore),\s*",
+        "",
+        "Dropped a stock transition at sentence start.",
+    ),
+    StrategyRule(
+        "delete_redundant_summary",
+        r"(?m)^\s*(Overall|In summary|In conclusion|To summarize),\s*",
+        "",
+        "Removed summary framing that usually repeats the paragraph.",
+    ),
     StrategyRule("simplify_to_plain_statement", r"\bserves as\b", "is", "Simplified inflated copula phrasing."),
     StrategyRule("simplify_to_plain_statement", r"\bstands as\b", "is", "Simplified inflated copula phrasing."),
     StrategyRule("simplify_to_plain_statement", r"\bfeatures\b", "has", "Simplified inflated copula phrasing."),
@@ -32,10 +47,41 @@ STRATEGY_RULES: tuple[StrategyRule, ...] = (
     StrategyRule("neutralize_promotional_language", r"\bremarkable\b", "notable", "Neutralized ungrounded praise."),
     StrategyRule("remove_chat_residue", r"\bI hope this helps\.?\s*", "", "Removed conversational assistant residue."),
     StrategyRule("remove_chat_residue", r"\bWould you like[^.?!]*[.?!]\s*", "", "Removed assistant-style prompt residue."),
-    StrategyRule("remove_chat_residue", r"\bAs of my last training update[^.?!]*[.?!]\s*", "", "Removed model-era disclaimer language."),
-    StrategyRule("remove_chat_residue", r"\bAs an AI language model[^.?!]*[.?!]\s*", "", "Removed explicit model disclosure residue."),
+    StrategyRule(
+        "remove_chat_residue",
+        r"\bAs of my last training update[^.?!]*[.?!]\s*",
+        "",
+        "Removed model-era disclaimer language.",
+    ),
+    StrategyRule(
+        "remove_chat_residue",
+        r"\bAs an AI language model[^.?!]*[.?!]\s*",
+        "",
+        "Removed explicit model disclosure residue.",
+    ),
     StrategyRule("swap_abstract_nouns_for_verbs", r"\bin order to\b", "to", "Shortened verbose abstraction."),
-    StrategyRule("state_known_limits_plainly", r"\bthere appears to be little information\b", "little verified information is available", "Stated the sourcing limit directly."),
+    StrategyRule(
+        "state_known_limits_plainly",
+        r"\bthere appears to be little information\b",
+        "little verified information is available",
+        "Stated the sourcing limit directly.",
+    ),
+    StrategyRule("replace_with_concrete_fact", r"\ba pivotal moment\b", "a concrete change", "Reduced inflated significance language."),
+    StrategyRule("replace_with_concrete_fact", r"\bpivotal moment\b", "concrete change", "Reduced inflated significance language."),
+    StrategyRule("replace_with_concrete_fact", r"\ba crucial role\b", "an important role", "Reduced inflated significance language."),
+    StrategyRule("replace_with_concrete_fact", r"\bcrucial role\b", "important role", "Reduced inflated significance language."),
+    StrategyRule("replace_with_concrete_fact", r"\bmarks? a shift\b", "marks a concrete change", "Reduced inflated significance language."),
+    StrategyRule("delete_if_empty", r"\breflects broader trends\b", "reflects documented changes", "Removed empty context padding."),
+    StrategyRule("delete_if_empty", r"\bcontributes to the wider landscape\b", "adds to the record", "Removed empty context padding."),
+    StrategyRule("delete_if_empty", r"\bbroader landscape\b", "documented context", "Removed empty context padding."),
+    StrategyRule("delete_if_empty", r"\bfuture prospects\b", "next steps", "Reduced canned future framing."),
+    StrategyRule("delete_if_empty", r"\bfuture outlook\b", "next steps", "Reduced canned future framing."),
+    StrategyRule("name_source_or_remove", r"\b[Ee]xperts argue that\s*", "", "Removed vague attribution that named no source."),
+    StrategyRule("name_source_or_remove", r"\b[Ee]xperts argue\s*", "", "Removed vague attribution that named no source."),
+    StrategyRule("name_source_or_remove", r"\b[Oo]bservers say that\s*", "", "Removed vague attribution that named no source."),
+    StrategyRule("name_source_or_remove", r"\b[Oo]bservers say\s*", "", "Removed vague attribution that named no source."),
+    StrategyRule("name_source_or_remove", r"\b[Ii]ndustry reports suggest that\s*", "", "Removed vague attribution that named no source."),
+    StrategyRule("name_source_or_remove", r"\b[Ii]ndustry reports suggest\s*", "", "Removed vague attribution that named no source."),
 )
 
 
@@ -80,6 +126,8 @@ def _normalize_whitespace(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     text = re.sub(r"\s+([.,;:!?])", r"\1", text)
+    text = re.sub(r"\b(is|are|was|were) a\s+\.", r"\1.", text)
+    text = re.sub(r"\s+\.", ".", text)
     text = text.strip()
     if text and text[0].islower():
         text = text[0].upper() + text[1:]

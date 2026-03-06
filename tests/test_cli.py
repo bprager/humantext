@@ -7,8 +7,14 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from humantext.version import get_version
+
 BASE_ENV = os.environ.copy()
-BASE_ENV["PYTHONPATH"] = str(ROOT / "src")
+BASE_ENV["PYTHONPATH"] = str(SRC)
 
 
 class CliTests(unittest.TestCase):
@@ -41,6 +47,17 @@ class CliTests(unittest.TestCase):
             self.assertIn("document_id", payload)
             self.assertIn("analysis_id", payload)
             self.assertTrue(db_path.exists())
+
+    def test_version_command_matches_runtime_version(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "-m", "humantext.cli.main", "version"],
+            cwd=ROOT,
+            env=BASE_ENV,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(result.stdout.strip(), get_version())
 
 
 if __name__ == "__main__":

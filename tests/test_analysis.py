@@ -29,7 +29,14 @@ class AnalysisTests(unittest.TestCase):
         self.assertNotIn("Additionally,", rewritten.output_text)
         self.assertNotIn("important to note", rewritten.output_text.lower())
         self.assertNotIn("serves as", rewritten.output_text)
+        self.assertNotIn("pivotal moment", rewritten.output_text.lower())
         self.assertTrue(rewritten.changes)
+
+    def test_rewrite_text_handles_vague_attribution(self) -> None:
+        rewritten = rewrite_text("Experts argue that this reflects broader trends.")
+        self.assertNotIn("Experts argue", rewritten.output_text)
+        self.assertIn("documented changes", rewritten.output_text)
+        self.assertEqual(rewritten.warnings, [])
 
 
 if __name__ == "__main__":
