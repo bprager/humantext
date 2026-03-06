@@ -7,9 +7,14 @@ import sys
 from typing import Any, TextIO
 
 from humantext.core.analysis import analyze_text
+from humantext.core.suggest import suggest_edits
 from humantext.detectors.signals import SIGNALS
 from humantext.rewrite.engine import rewrite_text
+from humantext.storage.database import HumanTextDatabase
 from humantext.version import get_version
+
+
+DEFAULT_DB_PATH = "humantext.db"
 
 
 def get_server_metadata() -> dict[str, Any]:
@@ -31,7 +36,7 @@ def list_tools() -> list[dict[str, Any]]:
         },
         {
             "name": "suggest_edits",
-            "description": "Produce a minimal ranked edit plan from current findings.",
+            "description": "Produce a ranked edit plan and sample edits.",
             "input": ["text", "genre?", "profile_id?", "mode?"],
         },
         {
@@ -41,13 +46,13 @@ def list_tools() -> list[dict[str, Any]]:
         },
         {
             "name": "learn_style",
-            "description": "Reserved endpoint for future voice-profile learning.",
-            "input": ["author_id", "documents[]"],
+            "description": "Learn and persist a voice profile from trusted documents.",
+            "input": ["author_id", "documents[]", "name?", "db_path?"],
         },
         {
             "name": "get_voice_profile",
-            "description": "Reserved endpoint for future voice-profile retrieval.",
-            "input": ["profile_id"],
+            "description": "Load a previously persisted voice profile.",
+            "input": ["profile_id", "db_path?"],
         },
         {
             "name": "list_signals",
@@ -69,33 +74,37 @@ def handle_tool_call(tool_name: str, params: dict[str, Any] | None = None) -> di
         return result
 
     if tool_name == "suggest_edits":
-        analysis = analyze_text(params["text"], mode=mode)
-        priorities = []
-        for finding in analysis.findings:
-            strategy = finding.recommended_strategies[0] if finding.recommended_strategies else "review"
-            priorities.append(
-                {
-                    "signal_code": finding.signal_code,
-                    "goal": finding.description,
-                    "strategy_code": strategy,
-                    "edit_scope": "local",
-                    "risk_note": "Review manually if domain-specific nuance matters.",
-                }
-            )
-        return {"edit_plan": {"priorities": priorities}, "sample_edits": []}
+        result = suggest_edits(params["text"], mode=mode).to_dict()
+        if "genre" in params:
+            result["genre"] = params["genre"]
+        return result
 
     if tool_name == "rewrite_text":
         return rewrite_text(params["text"], mode=mode).to_dict()
 
     if tool_name == "learn_style":
-        return {
-            "status": "not_implemented",
-            "author_id": params.get("author_id"),
-            "documents": len(params.get("documents", [])),
-        }
+        database = HumanTextDatabase(params.get("db_path", DEFAULT_DB_PATH))
+        try:
+            database.initialize()
+            profile = database.learn_style(
+                author_id=params["author_id"],
+                documents=params.get("documents", []),
+                profile_name=params.get("name"),
+            )
+        finally:
+            database.close()
+        return profile.to_dict()
 
     if tool_name == "get_voice_profile":
-        return {"status": "not_implemented", "profile_id": params.get("profile_id")}
+        database = HumanTextDatabase(params.get("db_path", DEFAULT_DB_PATH))
+        try:
+            database.initialize()
+            profile = database.get_voice_profile(params["profile_id"])
+        finally:
+            database.close()
+        if profile is None:
+            return {"status": "not_found", "profile_id": params["profile_id"]}
+        return profile.to_dict()
 
     if tool_name == "list_signals":
         return {

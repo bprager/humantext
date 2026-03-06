@@ -1,6 +1,7 @@
 import io
 import json
 import sys
+import tempfile
 from pathlib import Path
 import unittest
 
@@ -24,6 +25,29 @@ class McpTests(unittest.TestCase):
         result = handle_tool_call("analyze_text", {"text": "Experts argue this pivotal moment reflects broader trends."})
         self.assertIn("findings", result)
         self.assertTrue(result["findings"])
+
+    def test_handle_tool_call_suggest_edits(self) -> None:
+        result = handle_tool_call("suggest_edits", {"text": "Experts argue this pivotal moment reflects broader trends."})
+        self.assertTrue(result["edit_plan"]["priorities"])
+
+    def test_handle_tool_call_learn_and_get_voice_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = str(Path(tmpdir) / "humantext.db")
+            learned = handle_tool_call(
+                "learn_style",
+                {
+                    "author_id": "bernd",
+                    "name": "Bernd",
+                    "db_path": db_path,
+                    "documents": [
+                        {"text": "We review the record carefully. However, we keep the language direct.", "title": "a.txt"},
+                        {"text": "The memo is concise, but it preserves nuance and context.", "title": "b.txt"},
+                    ],
+                },
+            )
+            loaded = handle_tool_call("get_voice_profile", {"db_path": db_path, "profile_id": learned["profile_id"]})
+            self.assertEqual(loaded["profile_id"], learned["profile_id"])
+            self.assertTrue(loaded["traits"])
 
     def test_serve_stdio_round_trip(self) -> None:
         instream = io.StringIO(json.dumps({"id": 1, "tool": "server_metadata"}) + "\n")

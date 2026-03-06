@@ -10,9 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from humantext.core.analysis import analyze_text
-from humantext.core.models import AnalysisResult
+from humantext.core.models import AnalysisResult, VoiceProfile, VoiceTrait
 from humantext.core.segmentation import paragraph_spans, sentence_spans
 from humantext.detectors.signals import SIGNALS
+from humantext.learning import learn_voice_profile
 
 
 class HumanTextDatabase:
@@ -27,8 +28,9 @@ class HumanTextDatabase:
         self.connection.close()
 
     def initialize(self) -> None:
-        migration_path = Path(__file__).resolve().parents[3] / "migrations" / "001_init.sql"
-        self.connection.executescript(migration_path.read_text(encoding="utf-8"))
+        if not self._schema_initialized():
+            migration_path = Path(__file__).resolve().parents[3] / "migrations" / "001_init.sql"
+            self.connection.executescript(migration_path.read_text(encoding="utf-8"))
         self.seed_signal_catalog()
         self.connection.commit()
 
@@ -86,6 +88,20 @@ class HumanTextDatabase:
                 for priority, strategy in enumerate(signal.rewrite_strategies, start=1)
             ],
         )
+
+    def ensure_author(self, author_id: str, display_name: str | None = None) -> None:
+        now = _timestamp()
+        self.connection.execute(
+            """
+            INSERT INTO authors(author_id, display_name, created_at, updated_at)
+            VALUES(?, ?, ?, ?)
+            ON CONFLICT(author_id) DO UPDATE SET
+                display_name = excluded.display_name,
+                updated_at = excluded.updated_at
+            """,
+            (author_id, display_name or author_id, now, now),
+        )
+        self.connection.commit()
 
     def ingest_document(
         self,
@@ -177,8 +193,96 @@ class HumanTextDatabase:
         analysis_id = self.store_analysis(text, analysis, document_id=document_id)
         return document_id, analysis_id, analysis
 
+    def learn_style(self, *, author_id: str, documents: list[dict[str, str]], profile_name: str | None = None) -> VoiceProfile:
+        self.ensure_author(author_id, profile_name or author_id)
+        texts = [document["text"] for document in documents]
+        profile = learn_voice_profile(texts, author_id=author_id, name=profile_name or author_id)
+        now = _timestamp()
+        self.connection.execute(
+            """
+            INSERT INTO voice_profiles(
+                profile_id, author_id, name, version, status, corpus_doc_count, confidence,
+                summary_json, created_at, updated_at
+            ) VALUES(?, ?, ?, 1, 'active', ?, ?, ?, ?, ?)
+            """,
+            (
+                profile.profile_id,
+                profile.author_id,
+                profile.name,
+                profile.corpus_doc_count,
+                profile.confidence,
+                json.dumps({"profile_summary": profile.profile_summary}),
+                now,
+                now,
+            ),
+        )
+        for document in documents:
+            self.ingest_document(
+                document["text"],
+                path=document.get("path"),
+                title=document.get("title"),
+                source_type=document.get("source_type", "text"),
+                author_id=author_id,
+                profile_id=profile.profile_id,
+                trusted_for_learning=True,
+            )
+        for trait in profile.traits:
+            self.connection.execute(
+                """
+                INSERT INTO voice_traits(trait_id, profile_id, trait_code, trait_value, confidence, evidence_json)
+                VALUES(?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"trait_{uuid.uuid4().hex}",
+                    profile.profile_id,
+                    trait.trait_code,
+                    trait.trait_value,
+                    trait.confidence,
+                    json.dumps(trait.evidence_examples),
+                ),
+            )
+        self.connection.commit()
+        return profile
+
+    def get_voice_profile(self, profile_id: str) -> VoiceProfile | None:
+        profile_row = self.connection.execute(
+            "SELECT * FROM voice_profiles WHERE profile_id = ?",
+            (profile_id,),
+        ).fetchone()
+        if profile_row is None:
+            return None
+        trait_rows = self.connection.execute(
+            "SELECT trait_code, trait_value, confidence, evidence_json FROM voice_traits WHERE profile_id = ? ORDER BY trait_code",
+            (profile_id,),
+        ).fetchall()
+        traits = [
+            VoiceTrait(
+                trait_code=row["trait_code"],
+                trait_value=row["trait_value"],
+                confidence=row["confidence"],
+                evidence_examples=json.loads(row["evidence_json"]),
+            )
+            for row in trait_rows
+        ]
+        summary = json.loads(profile_row["summary_json"])["profile_summary"]
+        return VoiceProfile(
+            profile_id=profile_row["profile_id"],
+            author_id=profile_row["author_id"],
+            name=profile_row["name"],
+            profile_summary=summary,
+            confidence=profile_row["confidence"],
+            corpus_doc_count=profile_row["corpus_doc_count"],
+            traits=traits,
+        )
+
     def list_rows(self, table: str) -> list[sqlite3.Row]:
         return list(self.connection.execute(f"SELECT * FROM {table}"))
+
+    def _schema_initialized(self) -> bool:
+        row = self.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'authors'"
+        ).fetchone()
+        return row is not None
 
 
 def _timestamp() -> str:

@@ -30,6 +30,21 @@ class CliTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["findings"], [])
 
+    def test_suggest_command_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sample_path = Path(tmpdir) / "sample.txt"
+            sample_path.write_text("Experts argue this pivotal moment reflects broader trends.", encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, "-m", "humantext.cli.main", "suggest", str(sample_path)],
+                cwd=ROOT,
+                env=BASE_ENV,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            payload = json.loads(result.stdout)
+            self.assertTrue(payload["edit_plan"]["priorities"])
+
     def test_ingest_command_creates_database_records(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "humantext.db"
@@ -47,6 +62,37 @@ class CliTests(unittest.TestCase):
             self.assertIn("document_id", payload)
             self.assertIn("analysis_id", payload)
             self.assertTrue(db_path.exists())
+
+    def test_learn_command_persists_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            corpus = Path(tmpdir) / "corpus"
+            corpus.mkdir()
+            (corpus / "a.txt").write_text("We review the record carefully. However, we keep the language direct.", encoding="utf-8")
+            (corpus / "b.md").write_text("The memo is concise, but it preserves nuance and context.", encoding="utf-8")
+            db_path = Path(tmpdir) / "humantext.db"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "humantext.cli.main",
+                    "learn",
+                    str(corpus),
+                    "--db",
+                    str(db_path),
+                    "--author-id",
+                    "bernd",
+                    "--name",
+                    "Bernd",
+                ],
+                cwd=ROOT,
+                env=BASE_ENV,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["author_id"], "bernd")
+            self.assertTrue(payload["traits"])
 
     def test_version_command_matches_runtime_version(self) -> None:
         result = subprocess.run(

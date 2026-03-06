@@ -39,6 +39,30 @@ class StorageTests(unittest.TestCase):
             finally:
                 connection.close()
 
+    def test_learn_style_persists_voice_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "state.db"
+            database = HumanTextDatabase(db_path)
+            try:
+                database.initialize()
+                profile = database.learn_style(
+                    author_id="bernd",
+                    profile_name="Bernd",
+                    documents=[
+                        {"text": "We review the record carefully. However, we keep the language direct.", "title": "a.txt"},
+                        {"text": "The memo is concise, but it preserves nuance and context.", "title": "b.txt"},
+                    ],
+                )
+                loaded = database.get_voice_profile(profile.profile_id)
+                self.assertIsNotNone(loaded)
+                assert loaded is not None
+                self.assertEqual(loaded.author_id, "bernd")
+                self.assertGreaterEqual(len(loaded.traits), 5)
+                self.assertEqual(len(database.list_rows("voice_profiles")), 1)
+                self.assertEqual(len(database.list_rows("voice_traits")), len(loaded.traits))
+            finally:
+                database.close()
+
 
 if __name__ == "__main__":
     unittest.main()
