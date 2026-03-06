@@ -14,7 +14,8 @@
 
 <p align="center">
   <a href="https://github.com/bprager/humantext/releases"><img src="https://img.shields.io/github/v/release/bprager/humantext?display_name=tag" alt="Latest Release"></a>
-  <a href="https://github.com/bprager/humantext/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/bprager/humantext/release.yml?label=release" alt="Release Workflow"></a>
+  <a href="https://github.com/bprager/humantext/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/bprager/humantext/ci.yml?branch=main&label=lint%20%26%20test" alt="Lint and Test"></a>
+  <a href="https://codecov.io/gh/bprager/humantext"><img src="https://codecov.io/gh/bprager/humantext/graph/badge.svg" alt="Code Coverage"></a>
   <a href="https://github.com/bprager/humantext/blob/main/LICENSE"><img src="https://img.shields.io/github/license/bprager/humantext" alt="License"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/local--first-SQLite%20%2B%20MCP-0F766E" alt="Local-first SQLite and MCP">

@@ -17,6 +17,23 @@ from humantext.version import get_version
 DEFAULT_DB_PATH = "humantext.db"
 
 
+def _resolve_profile_context(params: dict[str, Any]) -> tuple[str | None, str | None]:
+    profile_id = params.get("profile_id")
+    if not profile_id:
+        return None, None
+
+    database = HumanTextDatabase(params.get("db_path", DEFAULT_DB_PATH))
+    try:
+        database.initialize()
+        profile = database.get_voice_profile(profile_id)
+    finally:
+        database.close()
+
+    if profile is None:
+        raise KeyError(f"Unknown profile_id: {profile_id}")
+    return profile.profile_id, profile.profile_summary
+
+
 def get_server_metadata() -> dict[str, Any]:
     """Return server metadata that can be reused by any MCP adapter."""
     return {
@@ -66,21 +83,37 @@ def handle_tool_call(tool_name: str, params: dict[str, Any] | None = None) -> di
     """Dispatch a tool call in-process."""
     params = params or {}
     mode = params.get("mode", "minimal")
+    genre = params.get("genre")
 
     if tool_name == "analyze_text":
-        result = analyze_text(params["text"], mode=mode).to_dict()
-        if "genre" in params:
-            result["genre"] = params["genre"]
-        return result
+        profile_id, profile_summary = _resolve_profile_context(params)
+        return analyze_text(
+            params["text"],
+            mode=mode,
+            genre=genre,
+            profile_id=profile_id,
+            profile_summary=profile_summary,
+        ).to_dict()
 
     if tool_name == "suggest_edits":
-        result = suggest_edits(params["text"], mode=mode).to_dict()
-        if "genre" in params:
-            result["genre"] = params["genre"]
-        return result
+        profile_id, profile_summary = _resolve_profile_context(params)
+        return suggest_edits(
+            params["text"],
+            mode=mode,
+            genre=genre,
+            profile_id=profile_id,
+            profile_summary=profile_summary,
+        ).to_dict()
 
     if tool_name == "rewrite_text":
-        return rewrite_text(params["text"], mode=mode).to_dict()
+        profile_id, profile_summary = _resolve_profile_context(params)
+        return rewrite_text(
+            params["text"],
+            mode=mode,
+            genre=genre,
+            profile_id=profile_id,
+            profile_summary=profile_summary,
+        ).to_dict()
 
     if tool_name == "learn_style":
         database = HumanTextDatabase(params.get("db_path", DEFAULT_DB_PATH))

@@ -16,9 +16,22 @@ RISK_NOTES = {
 }
 
 
-def suggest_edits(text: str, mode: str = "minimal") -> EditSuggestion:
+def suggest_edits(
+    text: str,
+    mode: str = "minimal",
+    *,
+    genre: str | None = None,
+    profile_id: str | None = None,
+    profile_summary: str | None = None,
+) -> EditSuggestion:
     """Return a ranked edit plan with sample rewrites."""
-    analysis = analyze_text(text, mode=mode)
+    analysis = analyze_text(
+        text,
+        mode=mode,
+        genre=genre,
+        profile_id=profile_id,
+        profile_summary=profile_summary,
+    )
     priorities: list[EditPriority] = []
     for finding in analysis.findings:
         strategy = finding.recommended_strategies[0] if finding.recommended_strategies else "review"
@@ -35,7 +48,13 @@ def suggest_edits(text: str, mode: str = "minimal") -> EditSuggestion:
             )
         )
 
-    rewrite = rewrite_text(text, mode=mode)
+    rewrite = rewrite_text(
+        text,
+        mode=mode,
+        genre=genre,
+        profile_id=profile_id,
+        profile_summary=profile_summary,
+    )
     sample_edits = []
     for change in rewrite.changes[:5]:
         sample_edits.append(

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from humantext.core.analysis import analyze_text
 from humantext.core.segmentation import sentence_spans
 from humantext.core.models import AnalysisResult, RewriteChange, RewriteResult
+from humantext.rewrite.diff_explainer import build_change_log
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,9 +87,22 @@ STRATEGY_RULES: tuple[StrategyRule, ...] = (
 )
 
 
-def rewrite_text(text: str, mode: str = "minimal") -> RewriteResult:
+def rewrite_text(
+    text: str,
+    mode: str = "minimal",
+    *,
+    genre: str | None = None,
+    profile_id: str | None = None,
+    profile_summary: str | None = None,
+) -> RewriteResult:
     """Rewrite text using the strategies recommended by the analysis layer."""
-    analysis = analyze_text(text, mode=mode)
+    analysis = analyze_text(
+        text,
+        mode=mode,
+        genre=genre,
+        profile_id=profile_id,
+        profile_summary=profile_summary,
+    )
     updated = text
     changes: list[RewriteChange] = []
 
@@ -100,7 +114,14 @@ def rewrite_text(text: str, mode: str = "minimal") -> RewriteResult:
     updated = _polish_sentences(updated)
     updated = _normalize_whitespace(updated)
     warnings = _build_warnings(analysis, changes)
-    return RewriteResult(output_text=updated, changes=changes, warnings=warnings, analysis=analysis)
+    change_log = build_change_log(changes)
+    return RewriteResult(
+        output_text=updated,
+        changes=changes,
+        warnings=warnings,
+        analysis=analysis,
+        change_log=change_log,
+    )
 
 
 def _apply_strategy(text: str, strategy: str, signal_code: str) -> tuple[str, list[RewriteChange]]:

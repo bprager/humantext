@@ -161,7 +161,14 @@ class HumanTextDatabase:
                 profile_id,
                 analysis.mode,
                 created_at,
-                json.dumps({"summary": analysis.summary, "top_signals": analysis.top_signals}),
+                json.dumps(
+                    {
+                        "summary": analysis.summary,
+                        "top_signals": analysis.top_signals,
+                        "genre": analysis.genre,
+                        "profile_summary": analysis.profile_summary,
+                    }
+                ),
             ),
         )
         for finding in analysis.findings:
@@ -187,10 +194,26 @@ class HumanTextDatabase:
         self.connection.commit()
         return analysis_id
 
-    def ingest_and_analyze(self, text: str, *, path: str | None = None, title: str | None = None, mode: str = "minimal") -> tuple[str, str, AnalysisResult]:
-        document_id = self.ingest_document(text, path=path, title=title)
-        analysis = analyze_text(text, mode=mode)
-        analysis_id = self.store_analysis(text, analysis, document_id=document_id)
+    def ingest_and_analyze(
+        self,
+        text: str,
+        *,
+        path: str | None = None,
+        title: str | None = None,
+        mode: str = "minimal",
+        genre: str | None = None,
+        profile_id: str | None = None,
+        profile_summary: str | None = None,
+    ) -> tuple[str, str, AnalysisResult]:
+        document_id = self.ingest_document(text, path=path, title=title, profile_id=profile_id)
+        analysis = analyze_text(
+            text,
+            mode=mode,
+            genre=genre,
+            profile_id=profile_id,
+            profile_summary=profile_summary,
+        )
+        analysis_id = self.store_analysis(text, analysis, document_id=document_id, profile_id=profile_id)
         return document_id, analysis_id, analysis
 
     def learn_style(self, *, author_id: str, documents: list[dict[str, str]], profile_name: str | None = None) -> VoiceProfile:

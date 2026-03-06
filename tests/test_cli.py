@@ -45,6 +45,63 @@ class CliTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertTrue(payload["edit_plan"]["priorities"])
 
+    def test_analyze_command_accepts_genre_and_profile_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            corpus = Path(tmpdir) / "corpus"
+            corpus.mkdir()
+            (corpus / "a.txt").write_text("We review the record carefully. However, we keep the language direct.", encoding="utf-8")
+            (corpus / "b.md").write_text("The memo is concise, but it preserves nuance and context.", encoding="utf-8")
+            db_path = Path(tmpdir) / "humantext.db"
+            learned = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "humantext.cli.main",
+                    "learn",
+                    str(corpus),
+                    "--db",
+                    str(db_path),
+                    "--author-id",
+                    "bernd",
+                    "--name",
+                    "Bernd",
+                ],
+                cwd=ROOT,
+                env=BASE_ENV,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            profile_id = json.loads(learned.stdout)["profile_id"]
+
+            sample_path = Path(tmpdir) / "sample.txt"
+            sample_path.write_text("Experts argue this pivotal moment reflects broader trends.", encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "humantext.cli.main",
+                    "analyze",
+                    str(sample_path),
+                    "--genre",
+                    "technical memo",
+                    "--profile-id",
+                    profile_id,
+                    "--db",
+                    str(db_path),
+                ],
+                cwd=ROOT,
+                env=BASE_ENV,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["genre"], "technical memo")
+            self.assertEqual(payload["profile_id"], profile_id)
+            self.assertIn("profile_summary", payload)
+            self.assertTrue(any(finding["genre_note"] for finding in payload["findings"]))
+
     def test_ingest_command_creates_database_records(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "humantext.db"
@@ -62,6 +119,25 @@ class CliTests(unittest.TestCase):
             self.assertIn("document_id", payload)
             self.assertIn("analysis_id", payload)
             self.assertTrue(db_path.exists())
+
+    def test_rewrite_command_returns_change_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sample_path = Path(tmpdir) / "sample.txt"
+            sample_path.write_text(
+                "Additionally, it is important to note that this vibrant platform serves as a pivotal moment.",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, "-m", "humantext.cli.main", "rewrite", str(sample_path)],
+                cwd=ROOT,
+                env=BASE_ENV,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            payload = json.loads(result.stdout)
+            self.assertTrue(payload["change_log"])
+            self.assertIn("explanation", payload["change_log"][0])
 
     def test_learn_command_persists_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

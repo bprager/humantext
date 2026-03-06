@@ -1,0 +1,57 @@
+name: Backfill Releases
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create missing GitHub Releases for existing semantic version tags
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const semverTag = /^v\d+\.\d+\.\d+$/;
+
+            const tags = await github.paginate(github.rest.repos.listTags, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+            const existingReleaseTags = new Set(releases.map((release) => release.tag_name));
+
+            // Create older releases first, then newest tags become latest.
+            const orderedTags = tags
+              .map((tag) => tag.name)
+              .filter((name) => semverTag.test(name))
+              .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+            let created = 0;
+            for (const tagName of orderedTags) {
+              if (existingReleaseTags.has(tagName)) {
+                core.info(`Release already exists for ${tagName}; skipping.`);
+                continue;
+              }
+              await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tagName,
+                name: tagName,
+                generate_release_notes: true,
+              });
+              created += 1;
+              core.info(`Created release for ${tagName}.`);
+            }
+
+            core.notice(`Backfill complete. Created ${created} release(s).`);

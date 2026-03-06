@@ -22,6 +22,7 @@ class Finding:
     evidence: list[str] = field(default_factory=list)
     rationale: str = ""
     recommended_strategies: list[str] = field(default_factory=list)
+    genre_note: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         if not self.effective_score:
@@ -35,14 +36,24 @@ class AnalysisResult:
     findings: list[Finding]
     top_signals: list[str]
     mode: str = "minimal"
+    genre: str | None = None
+    profile_id: str | None = None
+    profile_summary: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "summary": self.summary,
             "top_signals": self.top_signals,
             "mode": self.mode,
             "findings": [finding.to_dict() for finding in self.findings],
         }
+        if self.genre is not None:
+            payload["genre"] = self.genre
+        if self.profile_id is not None:
+            payload["profile_id"] = self.profile_id
+        if self.profile_summary is not None:
+            payload["profile_summary"] = self.profile_summary
+        return payload
 
 
 @dataclass(slots=True)
@@ -124,11 +135,13 @@ class RewriteResult:
     changes: list[RewriteChange]
     warnings: list[str]
     analysis: AnalysisResult
+    change_log: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "output_text": self.output_text,
             "changes": [change.to_dict() for change in self.changes],
+            "change_log": self.change_log,
             "warnings": self.warnings,
             "analysis": self.analysis.to_dict(),
         }

@@ -30,6 +30,14 @@ class McpTests(unittest.TestCase):
         result = handle_tool_call("suggest_edits", {"text": "Experts argue this pivotal moment reflects broader trends."})
         self.assertTrue(result["edit_plan"]["priorities"])
 
+    def test_handle_tool_call_rewrite_text_returns_change_log(self) -> None:
+        result = handle_tool_call(
+            "rewrite_text",
+            {"text": "Additionally, it is important to note that this vibrant platform serves as a pivotal moment."},
+        )
+        self.assertTrue(result["change_log"])
+        self.assertIn("explanation", result["change_log"][0])
+
     def test_handle_tool_call_learn_and_get_voice_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = str(Path(tmpdir) / "humantext.db")
@@ -48,6 +56,20 @@ class McpTests(unittest.TestCase):
             loaded = handle_tool_call("get_voice_profile", {"db_path": db_path, "profile_id": learned["profile_id"]})
             self.assertEqual(loaded["profile_id"], learned["profile_id"])
             self.assertTrue(loaded["traits"])
+
+            analyzed = handle_tool_call(
+                "analyze_text",
+                {
+                    "text": "Experts argue this pivotal moment reflects broader trends.",
+                    "genre": "technical memo",
+                    "profile_id": learned["profile_id"],
+                    "db_path": db_path,
+                },
+            )
+            self.assertEqual(analyzed["genre"], "technical memo")
+            self.assertEqual(analyzed["profile_id"], learned["profile_id"])
+            self.assertIn("profile_summary", analyzed)
+            self.assertTrue(any(finding["genre_note"] for finding in analyzed["findings"]))
 
     def test_serve_stdio_round_trip(self) -> None:
         instream = io.StringIO(json.dumps({"id": 1, "tool": "server_metadata"}) + "\n")

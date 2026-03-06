@@ -12,6 +12,22 @@ from humantext.rewrite.engine import rewrite_text
 
 
 class AnalysisTests(unittest.TestCase):
+    def test_analyze_text_exposes_genre_and_profile_context(self) -> None:
+        result = analyze_text(
+            "Additionally, experts argue this pivotal moment reflects broader trends.",
+            genre="technical memo",
+            profile_id="profile_demo",
+            profile_summary="Demo voice profile.",
+        )
+        payload = result.to_dict()
+        self.assertEqual(payload["genre"], "technical memo")
+        self.assertEqual(payload["profile_id"], "profile_demo")
+        self.assertEqual(payload["profile_summary"], "Demo voice profile.")
+        self.assertIn("Reviewed as technical memo.", payload["summary"])
+        self.assertIn("Voice profile context loaded.", payload["summary"])
+        self.assertTrue(all("genre_note" in finding for finding in payload["findings"]))
+        self.assertTrue(any(finding["genre_note"] for finding in payload["findings"]))
+
     def test_analyze_text_returns_ranked_findings(self) -> None:
         result = analyze_text(
             "Additionally, experts argue this pivotal moment reflects broader trends."
@@ -38,6 +54,15 @@ class AnalysisTests(unittest.TestCase):
         self.assertIn("documented changes", rewritten.output_text)
         self.assertTrue(rewritten.output_text.startswith("This"))
         self.assertEqual(rewritten.warnings, [])
+
+    def test_rewrite_text_returns_change_log(self) -> None:
+        rewritten = rewrite_text(
+            "Additionally, it is important to note that this vibrant platform serves as a pivotal moment."
+        )
+        payload = rewritten.to_dict()
+        self.assertIn("change_log", payload)
+        self.assertTrue(payload["change_log"])
+        self.assertIn("explanation", payload["change_log"][0])
 
 
 if __name__ == "__main__":

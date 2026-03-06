@@ -10,7 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Changed
+
+- Added `genre` and `profile_id` plumbing to the CLI, analysis layer, rewrite layer, and MCP adapter so contract-level context now flows through the runtime.
+- Added per-finding `genre_note` output and rewrite `change_log` explanations to align runtime JSON more closely with the agent design in `AGENTS.md`.
+- Reworked top-level README badges so release appears once, plus explicit lint/test and code coverage badges.
+- Hardened the release workflow for tagged releases with tag validation, clearer release naming, and idempotent release publication settings.
+
+### Added
+
+- Added a dedicated CI workflow (`.github/workflows/ci.yml`) to run lint, tests, and coverage reporting on pushes and pull requests.
+- Added a one-click backfill workflow (`.github/workflows/backfill-releases.yml`) to convert existing semantic version tags into GitHub Releases.
+
+### Tests
+
+- Added coverage for genre/profile-aware analysis output and reviewer-facing rewrite change logs across the Python API, CLI, and MCP adapter.
 
 ## [0.1.2] - 2026-03-06
 
