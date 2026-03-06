@@ -27,7 +27,7 @@ Everything else derives from that file:
 
 - `scripts/check_version_sync.py` verifies that the package version, CLI version, and changelog structure match.
 - In CI release runs, the same script compares the current package version against `GITHUB_REF_NAME` and requires a matching topmost release section in `Changelog.md`.
-- `.github/workflows/release.yml` blocks release creation if the tag, runtime version, or changelog release section diverge.
+- `.github/workflows/release.yml` blocks release creation if the tag, runtime version, or changelog release section diverge, and it declares `contents: write` so GitHub Actions can create an actual GitHub Release instead of leaving only a tag.
 
 ## Operational flow
 
@@ -36,6 +36,7 @@ Everything else derives from that file:
 3. Create tag `vX.Y.Z`, or rerun the helper with `--tag`.
 4. Push the commit and tag.
 5. GitHub Actions validates `make check`, changelog structure, and version alignment, then creates the release.
+6. If a tag already exists without a GitHub Release, run the `Release` workflow manually with the `tag` input set to that existing tag, for example `v0.1.2`.
 
 ## Why this model
 
