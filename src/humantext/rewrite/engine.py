@@ -1,14 +1,102 @@
-"""Minimal rewrite helpers."""
+"""Strategy-driven rewrite helpers."""
 
-REPLACEMENTS = {
-    "facilitates": "helps",
-    "in order to": "to",
-}
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+from humantext.core.analysis import analyze_text
+from humantext.core.models import AnalysisResult, RewriteChange, RewriteResult
 
 
-def rewrite_text(text: str) -> str:
-    """Apply deterministic baseline replacements."""
+@dataclass(frozen=True, slots=True)
+class StrategyRule:
+    strategy: str
+    pattern: str
+    replacement: str
+    rationale: str
+
+
+STRATEGY_RULES: tuple[StrategyRule, ...] = (
+    StrategyRule("remove_teacherly_preface", r"\bIt is important to note that\s*", "", "Removed teacherly framing so the sentence states the point directly."),
+    StrategyRule("remove_teacherly_preface", r"\bWorth noting,?\s*", "", "Removed teacherly preface."),
+    StrategyRule("replace_canned_transition", r"(?m)^\s*(Additionally|Furthermore),\s*", "", "Dropped a stock transition at sentence start."),
+    StrategyRule("delete_redundant_summary", r"(?m)^\s*(Overall|In summary|In conclusion|To summarize),\s*", "", "Removed summary framing that usually repeats the paragraph."),
+    StrategyRule("simplify_to_plain_statement", r"\bserves as\b", "is", "Simplified inflated copula phrasing."),
+    StrategyRule("simplify_to_plain_statement", r"\bstands as\b", "is", "Simplified inflated copula phrasing."),
+    StrategyRule("simplify_to_plain_statement", r"\bfeatures\b", "has", "Simplified inflated copula phrasing."),
+    StrategyRule("simplify_to_plain_statement", r"\boffers\b", "has", "Simplified inflated copula phrasing."),
+    StrategyRule("neutralize_promotional_language", r"\bvibrant\b", "active", "Neutralized promotional language."),
+    StrategyRule("neutralize_promotional_language", r"\brenowned\b", "well-known", "Neutralized promotional language."),
+    StrategyRule("neutralize_promotional_language", r"\bgroundbreaking\b", "notable", "Neutralized promotional language."),
+    StrategyRule("neutralize_promotional_language", r"\bremarkable\b", "notable", "Neutralized ungrounded praise."),
+    StrategyRule("remove_chat_residue", r"\bI hope this helps\.?\s*", "", "Removed conversational assistant residue."),
+    StrategyRule("remove_chat_residue", r"\bWould you like[^.?!]*[.?!]\s*", "", "Removed assistant-style prompt residue."),
+    StrategyRule("remove_chat_residue", r"\bAs of my last training update[^.?!]*[.?!]\s*", "", "Removed model-era disclaimer language."),
+    StrategyRule("remove_chat_residue", r"\bAs an AI language model[^.?!]*[.?!]\s*", "", "Removed explicit model disclosure residue."),
+    StrategyRule("swap_abstract_nouns_for_verbs", r"\bin order to\b", "to", "Shortened verbose abstraction."),
+    StrategyRule("state_known_limits_plainly", r"\bthere appears to be little information\b", "little verified information is available", "Stated the sourcing limit directly."),
+)
+
+
+def rewrite_text(text: str, mode: str = "minimal") -> RewriteResult:
+    """Rewrite text using the strategies recommended by the analysis layer."""
+    analysis = analyze_text(text, mode=mode)
     updated = text
-    for source, target in REPLACEMENTS.items():
-        updated = updated.replace(source, target)
-    return updated
+    changes: list[RewriteChange] = []
+
+    for finding in analysis.findings:
+        for strategy in finding.recommended_strategies:
+            updated, strategy_changes = _apply_strategy(updated, strategy, finding.signal_code)
+            changes.extend(strategy_changes)
+
+    updated = _normalize_whitespace(updated)
+    warnings = _build_warnings(analysis, changes)
+    return RewriteResult(output_text=updated, changes=changes, warnings=warnings, analysis=analysis)
+
+
+def _apply_strategy(text: str, strategy: str, signal_code: str) -> tuple[str, list[RewriteChange]]:
+    changes: list[RewriteChange] = []
+    updated = text
+    for rule in STRATEGY_RULES:
+        if rule.strategy != strategy:
+            continue
+        new_text, count = re.subn(rule.pattern, rule.replacement, updated, flags=re.IGNORECASE | re.MULTILINE)
+        if count:
+            changes.append(
+                RewriteChange(
+                    signal_code=signal_code,
+                    strategy=strategy,
+                    before=updated,
+                    after=new_text,
+                    rationale=rule.rationale,
+                )
+            )
+            updated = new_text
+    return updated, changes
+
+
+def _normalize_whitespace(text: str) -> str:
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"\s+([.,;:!?])", r"\1", text)
+    text = text.strip()
+    if text and text[0].islower():
+        text = text[0].upper() + text[1:]
+    return text
+
+
+def _build_warnings(analysis: AnalysisResult, changes: list[RewriteChange]) -> list[str]:
+    available_strategies = {rule.strategy for rule in STRATEGY_RULES}
+    unresolved = [
+        finding.signal_code
+        for finding in analysis.findings
+        if not any(strategy in available_strategies for strategy in finding.recommended_strategies)
+    ]
+    if analysis.findings and not changes:
+        return ["Signals were detected, but no automatic strategy rule was available for them yet."]
+    if unresolved:
+        return [f"Automatic rewrite rules are not implemented yet for: {', '.join(sorted(set(unresolved)))}."]
+    if len(changes) > 8:
+        return ["Rewrite touched many spans; review for tone drift."]
+    return []

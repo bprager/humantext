@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Single-source versioning via `src/humantext/VERSION`, a CLI `version` command, and release synchronization checks for GitHub tags and `Changelog.md`.
+- `scripts/prepare_release.py` and `make release-prep VERSION=X.Y.Z` to update `src/humantext/VERSION` and create the matching top release section in `Changelog.md`.
 - Root `Makefile` with `test` and `check` targets.
 - Minimal unit and CLI smoke tests for the scaffold implementation.
 - Root `.gitignore` coverage for local Codex files, Python caches, virtualenvs, and archive artifacts.

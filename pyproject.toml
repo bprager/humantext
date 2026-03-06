@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "humantext"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Local-first editorial intelligence engine to detect and revise AI-style writing."
 authors = [{ name = "HumanText Contributors" }]
 readme = "README.md"
@@ -18,3 +18,9 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "humantext.version.__version__" }
+
+[tool.setuptools.package-data]
+humantext = ["VERSION"]

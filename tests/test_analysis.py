@@ -12,13 +12,24 @@ from humantext.rewrite.engine import rewrite_text
 
 
 class AnalysisTests(unittest.TestCase):
-    def test_analyze_text_returns_seeded_findings(self) -> None:
-        findings = analyze_text("This facilitates change in order to scale.")
-        self.assertEqual([item["signal_code"] for item in findings], ["GENERIC_PHRASE", "VERBOSITY"])
+    def test_analyze_text_returns_ranked_findings(self) -> None:
+        result = analyze_text(
+            "Additionally, experts argue this pivotal moment reflects broader trends."
+        )
+        self.assertEqual(result.top_signals[0], "VAGUE_ATTRIBUTION")
+        self.assertEqual(result.findings[0].signal_code, "VAGUE_ATTRIBUTION")
+        self.assertTrue(any(f.signal_code == "GENERIC_SIGNIFICANCE" for f in result.findings))
+        self.assertIn("Detected", result.summary)
 
-    def test_rewrite_text_applies_seeded_replacements(self) -> None:
-        rewritten = rewrite_text("This facilitates change in order to scale.")
-        self.assertEqual(rewritten, "This helps change to scale.")
+    def test_rewrite_text_applies_strategy_rules(self) -> None:
+        rewritten = rewrite_text(
+            "Additionally, it is important to note that this vibrant platform serves as a pivotal moment."
+        )
+        self.assertIn("output_text", rewritten.to_dict())
+        self.assertNotIn("Additionally,", rewritten.output_text)
+        self.assertNotIn("important to note", rewritten.output_text.lower())
+        self.assertNotIn("serves as", rewritten.output_text)
+        self.assertTrue(rewritten.changes)
 
 
 if __name__ == "__main__":

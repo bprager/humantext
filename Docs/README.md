@@ -9,3 +9,4 @@ This folder contains the product and implementation references for HumanText.
 - `signals.md` - initial signal taxonomy
 - `roadmap.md` - planned delivery phases
 - `demo.md` - small CLI example
+- `versioning.md` - versioning and release synchronization rules
