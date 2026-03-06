@@ -1,70 +1,65 @@
-# HumanText
+<p align="center">
+  <img src=".github/assets/humantext-logo.png" alt="HumanText logo" width="360">
+</p>
 
-HumanText is a local-first editorial intelligence engine for teams who use AI to draft, but still need writing that sounds specific, accountable, and recognizably human.
+<h1 align="center">HumanText</h1>
 
-It analyzes generic or mechanical writing patterns, explains why they weaken the prose, and helps revise text toward a stronger author voice without turning the product into an authorship detector.
+<p align="center">
+  <strong>Local-first editorial intelligence for text that should sound specific, accountable, and human.</strong>
+</p>
+
+<p align="center">
+  Analyze drafts. Rank the edits that matter. Rewrite with constraints. Learn a trusted voice profile.
+</p>
+
+<p align="center">
+  <a href="https://github.com/bprager/humantext/releases"><img src="https://img.shields.io/github/v/release/bprager/humantext?display_name=tag" alt="Latest Release"></a>
+  <a href="https://github.com/bprager/humantext/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/bprager/humantext/release.yml?label=release" alt="Release Workflow"></a>
+  <a href="https://github.com/bprager/humantext/blob/main/LICENSE"><img src="https://img.shields.io/github/license/bprager/humantext" alt="License"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/local--first-SQLite%20%2B%20MCP-0F766E" alt="Local-first SQLite and MCP">
+</p>
+
+HumanText is for reviewers, editors, and teams that use AI to draft but still need prose that reads like it came from a real author. It treats suspicious patterns as editorial signals, not proof of authorship.
 
 ## Why HumanText
 
-Most AI writing tools rewrite too aggressively and explain too little.
+- Flags generic, inflated, or mechanical phrasing with explanation-backed findings
+- Suggests the smallest useful edits before resorting to a full rewrite
+- Preserves facts, terminology, and legitimate nuance
+- Learns from trusted samples instead of flattening every voice into one style
+- Works locally through CLI, Python, SQLite, and MCP interfaces
 
-HumanText is built to do the opposite:
-
-- detect stylistic signals that make writing feel generic, inflated, or chatbot-like
-- suggest targeted edits before heavy rewrites
-- preserve meaning, terminology, and legitimate nuance
-- learn voice traits from trusted writing samples
-- run locally with a simple, inspectable architecture
-
-## Who it is for
-
-- consultants
-- lawyers
-- analysts
-- founders
-- editors
-- teams building editorial or agent workflows
-
-## Core workflow
-
-1. Analyze text for stylistic signals.
-2. Rank the highest-value edits.
-3. Rewrite with constraints.
-4. Learn and apply a real voice profile.
-5. Expose the workflow through CLI, library, and MCP interfaces.
-
-## Project direction
-
-HumanText is designed as:
-
-- local-first
-- explainable
-- profile-aware
-- SQLite-backed
-- integration-friendly
-
-## Inspiration
-
-The project was inspired by Wikipedia's field guide, [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing), which catalogs common writing patterns often associated with AI-generated text. HumanText treats those patterns as heuristics for editorial analysis, not proof of authorship.
-
-## Repository map
-
-- `src/humantext/` - Python package scaffold
-- `Docs/` - product and architecture documentation
-- `migrations/` - database schema migrations
-- `tests/` - unit and CLI smoke tests
-- `Data/` - corpora, datasets, and sample material
-- `.codex/` - project operating notes and session guidance
-
-## Quick start
+## Quick Start
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-make check
-PYTHONPATH=src python -m humantext.cli.main analyze Docs/demo.md
+pip install -e .
+
+humantext analyze Docs/demo.md
+humantext suggest Docs/demo.md
+humantext rewrite Docs/demo.md
+```
+
+## Learn a Voice Profile
+
+Point the learner at any directory of trusted `.md` or `.txt` files.
+
+```bash
+humantext learn ./trusted-samples --author-id acme --name "Acme Editorial"
+```
+
+## Run the MCP Adapter
+
+```bash
+humantext mcp-serve
 ```
 
 ## Status
 
-This repository is in active buildout. The architecture, schema, signal taxonomy, tests, and package structure are in place; the core analysis and rewrite engine are still at scaffold stage.
+The current repository already includes baseline signal detection, ranked edit suggestions, rewrite strategies, voice-profile learning, SQLite persistence, CLI commands, and an MCP adapter. The next step is deeper profile-aware and span-aware editing behavior.
+
+## Inspiration
+
+HumanText was inspired by [Wikipedia: Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing). Those patterns are used here as heuristics for editorial review, not as a claim of authorship certainty.
