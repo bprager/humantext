@@ -10,7 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Changed
+
+- Added profile-aware finding scoring so analysis now adjusts severity by learned traits such as abstraction tolerance, transition frequency, and directness.
+- Threaded persisted voice traits through CLI, MCP, suggestion, and rewrite flows so profile context affects prioritization, not just summary text.
+
+### Tests
+
+- Added assertions that profile context produces non-zero `profile_adjustment` values in API, CLI, and MCP analysis paths.
 
 ## [0.1.3] - 2026-03-06
 

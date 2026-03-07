@@ -94,6 +94,7 @@ def rewrite_text(
     genre: str | None = None,
     profile_id: str | None = None,
     profile_summary: str | None = None,
+    profile_traits: dict[str, str] | None = None,
 ) -> RewriteResult:
     """Rewrite text using the strategies recommended by the analysis layer."""
     analysis = analyze_text(
@@ -102,6 +103,7 @@ def rewrite_text(
         genre=genre,
         profile_id=profile_id,
         profile_summary=profile_summary,
+        profile_traits=profile_traits,
     )
     updated = text
     changes: list[RewriteChange] = []

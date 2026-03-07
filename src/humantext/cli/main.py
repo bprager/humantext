@@ -18,9 +18,9 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _load_profile_summary(db_path: Path, profile_id: str | None) -> str | None:
+def _load_profile_context(db_path: Path, profile_id: str | None) -> tuple[str | None, dict[str, str] | None]:
     if not profile_id:
-        return None
+        return None, None
 
     database = HumanTextDatabase(db_path)
     try:
@@ -31,20 +31,22 @@ def _load_profile_summary(db_path: Path, profile_id: str | None) -> str | None:
 
     if profile is None:
         raise ValueError(f"Unknown profile_id: {profile_id}")
-    return profile.profile_summary
+    traits = {trait.trait_code: trait.trait_value for trait in profile.traits}
+    return profile.profile_summary, traits
 
 
-def _analysis_kwargs(parser: argparse.ArgumentParser, args: argparse.Namespace) -> dict[str, str | None]:
+def _analysis_kwargs(parser: argparse.ArgumentParser, args: argparse.Namespace) -> dict[str, object | None]:
     profile_id = getattr(args, "profile_id", None)
     db_path = getattr(args, "db", Path("humantext.db"))
     try:
-        profile_summary = _load_profile_summary(db_path, profile_id)
+        profile_summary, profile_traits = _load_profile_context(db_path, profile_id)
     except ValueError as exc:
         parser.error(str(exc))
     return {
         "genre": getattr(args, "genre", None),
         "profile_id": profile_id,
         "profile_summary": profile_summary,
+        "profile_traits": profile_traits,
     }
 
 

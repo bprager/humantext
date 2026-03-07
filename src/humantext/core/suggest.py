@@ -23,6 +23,7 @@ def suggest_edits(
     genre: str | None = None,
     profile_id: str | None = None,
     profile_summary: str | None = None,
+    profile_traits: dict[str, str] | None = None,
 ) -> EditSuggestion:
     """Return a ranked edit plan with sample rewrites."""
     analysis = analyze_text(
@@ -31,6 +32,7 @@ def suggest_edits(
         genre=genre,
         profile_id=profile_id,
         profile_summary=profile_summary,
+        profile_traits=profile_traits,
     )
     priorities: list[EditPriority] = []
     for finding in analysis.findings:
@@ -54,6 +56,7 @@ def suggest_edits(
         genre=genre,
         profile_id=profile_id,
         profile_summary=profile_summary,
+        profile_traits=profile_traits,
     )
     sample_edits = []
     for change in rewrite.changes[:5]:

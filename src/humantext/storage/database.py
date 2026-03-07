@@ -204,6 +204,7 @@ class HumanTextDatabase:
         genre: str | None = None,
         profile_id: str | None = None,
         profile_summary: str | None = None,
+        profile_traits: dict[str, str] | None = None,
     ) -> tuple[str, str, AnalysisResult]:
         document_id = self.ingest_document(text, path=path, title=title, profile_id=profile_id)
         analysis = analyze_text(
@@ -212,6 +213,7 @@ class HumanTextDatabase:
             genre=genre,
             profile_id=profile_id,
             profile_summary=profile_summary,
+            profile_traits=profile_traits,
         )
         analysis_id = self.store_analysis(text, analysis, document_id=document_id, profile_id=profile_id)
         return document_id, analysis_id, analysis

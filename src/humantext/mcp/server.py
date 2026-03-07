@@ -17,10 +17,10 @@ from humantext.version import get_version
 DEFAULT_DB_PATH = "humantext.db"
 
 
-def _resolve_profile_context(params: dict[str, Any]) -> tuple[str | None, str | None]:
+def _resolve_profile_context(params: dict[str, Any]) -> tuple[str | None, str | None, dict[str, str] | None]:
     profile_id = params.get("profile_id")
     if not profile_id:
-        return None, None
+        return None, None, None
 
     database = HumanTextDatabase(params.get("db_path", DEFAULT_DB_PATH))
     try:
@@ -31,7 +31,8 @@ def _resolve_profile_context(params: dict[str, Any]) -> tuple[str | None, str | 
 
     if profile is None:
         raise KeyError(f"Unknown profile_id: {profile_id}")
-    return profile.profile_id, profile.profile_summary
+    traits = {trait.trait_code: trait.trait_value for trait in profile.traits}
+    return profile.profile_id, profile.profile_summary, traits
 
 
 def get_server_metadata() -> dict[str, Any]:
@@ -86,33 +87,36 @@ def handle_tool_call(tool_name: str, params: dict[str, Any] | None = None) -> di
     genre = params.get("genre")
 
     if tool_name == "analyze_text":
-        profile_id, profile_summary = _resolve_profile_context(params)
+        profile_id, profile_summary, profile_traits = _resolve_profile_context(params)
         return analyze_text(
             params["text"],
             mode=mode,
             genre=genre,
             profile_id=profile_id,
             profile_summary=profile_summary,
+            profile_traits=profile_traits,
         ).to_dict()
 
     if tool_name == "suggest_edits":
-        profile_id, profile_summary = _resolve_profile_context(params)
+        profile_id, profile_summary, profile_traits = _resolve_profile_context(params)
         return suggest_edits(
             params["text"],
             mode=mode,
             genre=genre,
             profile_id=profile_id,
             profile_summary=profile_summary,
+            profile_traits=profile_traits,
         ).to_dict()
 
     if tool_name == "rewrite_text":
-        profile_id, profile_summary = _resolve_profile_context(params)
+        profile_id, profile_summary, profile_traits = _resolve_profile_context(params)
         return rewrite_text(
             params["text"],
             mode=mode,
             genre=genre,
             profile_id=profile_id,
             profile_summary=profile_summary,
+            profile_traits=profile_traits,
         ).to_dict()
 
     if tool_name == "learn_style":

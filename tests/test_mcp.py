@@ -70,6 +70,7 @@ class McpTests(unittest.TestCase):
             self.assertEqual(analyzed["profile_id"], learned["profile_id"])
             self.assertIn("profile_summary", analyzed)
             self.assertTrue(any(finding["genre_note"] for finding in analyzed["findings"]))
+            self.assertTrue(any(finding["profile_adjustment"] != 0 for finding in analyzed["findings"]))
 
     def test_serve_stdio_round_trip(self) -> None:
         instream = io.StringIO(json.dumps({"id": 1, "tool": "server_metadata"}) + "\n")

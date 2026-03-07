@@ -100,6 +100,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(payload["profile_id"], profile_id)
             self.assertIn("profile_summary", payload)
             self.assertTrue(any(finding["genre_note"] for finding in payload["findings"]))
+            self.assertTrue(any(finding["profile_adjustment"] != 0 for finding in payload["findings"]))
 
     def test_ingest_command_creates_database_records(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

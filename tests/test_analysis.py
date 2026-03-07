@@ -37,6 +37,26 @@ class AnalysisTests(unittest.TestCase):
         self.assertTrue(any(f.signal_code == "GENERIC_SIGNIFICANCE" for f in result.findings))
         self.assertIn("Detected", result.summary)
 
+    def test_profile_traits_adjust_effective_scores(self) -> None:
+        text = "This pivotal moment reflects broader trends."
+        baseline = analyze_text(text)
+        tuned = analyze_text(
+            text,
+            profile_summary="Trusted profile loaded.",
+            profile_traits={"tolerance_for_abstraction": "high"},
+        )
+
+        def score_for(result: object, signal_code: str) -> float:
+            findings = getattr(result, "findings")
+            finding = next(item for item in findings if item.signal_code == signal_code)
+            return finding.effective_score
+
+        self.assertLess(
+            score_for(tuned, "GENERIC_SIGNIFICANCE"),
+            score_for(baseline, "GENERIC_SIGNIFICANCE"),
+        )
+        self.assertIn("Profile-aware scoring adjusted", tuned.summary)
+
     def test_rewrite_text_applies_strategy_rules(self) -> None:
         rewritten = rewrite_text(
             "Additionally, it is important to note that this vibrant platform serves as a pivotal moment."
