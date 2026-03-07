@@ -6,8 +6,17 @@
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-python -m pytest
+pip install coverage ruff
+git config core.hooksPath .githooks
+make check
 ```
+
+## Git hooks
+
+The repository ships tracked hooks in `.githooks/`:
+
+- `pre-commit` runs `make check`
+- `pre-push` runs `make check` and `make coverage`
 
 ## Ground rules
 

@@ -1,6 +1,10 @@
 PYTHON ?= python
 
-.PHONY: test check version-check release-prep
+.PHONY: lint test coverage check version-check release-prep
+
+lint:
+	$(PYTHON) -m compileall src tests scripts
+
 
 version-check:
 	PYTHONPATH=src $(PYTHON) scripts/check_version_sync.py
@@ -9,8 +13,13 @@ version-check:
 test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py'
 
+coverage:
+	$(PYTHON) -m coverage run -m unittest discover -s tests -p 'test_*.py'
+	$(PYTHON) -m coverage xml
+	$(PYTHON) -m coverage report
+
 check:
-	$(PYTHON) -m compileall src
+	$(MAKE) lint
 	$(MAKE) version-check
 	$(MAKE) test
 
