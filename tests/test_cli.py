@@ -1,8 +1,9 @@
 import json
+import io
 import os
-import subprocess
 import sys
 import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
 import unittest
 
@@ -14,30 +15,37 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from humantext.version import get_version
-
-BASE_ENV = os.environ.copy()
-_existing_pythonpath = BASE_ENV.get("PYTHONPATH")
-if _existing_pythonpath:
-    BASE_ENV["PYTHONPATH"] = f"{SRC}{os.pathsep}{_existing_pythonpath}"
-else:
-    BASE_ENV["PYTHONPATH"] = str(SRC)
+from humantext.cli.main import main as cli_main
 
 
-def _run_cli(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
-    cli_entrypoint = ROOT / "src" / "humantext" / "cli" / "main.py"
-    result = subprocess.run(
-        [sys.executable, str(cli_entrypoint), *args],
-        cwd=cwd,
-        env=BASE_ENV,
-        capture_output=True,
-        text=True,
-    )
+class _Result:
+    def __init__(self, stdout: str, returncode: int) -> None:
+        self.stdout = stdout
+        self.returncode = returncode
+
+
+def _run_cli(*args: str, cwd: Path = ROOT) -> _Result:
+    argv_before = sys.argv[:]
+    cwd_before = Path.cwd()
+    stdout_capture = io.StringIO()
+    try:
+        sys.argv = ["humantext", *args]
+        os.chdir(cwd)
+        with redirect_stdout(stdout_capture):
+            try:
+                code = cli_main()
+            except SystemExit as exc:
+                code = int(exc.code) if isinstance(exc.code, int) else 1
+    finally:
+        sys.argv = argv_before
+        os.chdir(cwd_before)
+    result = _Result(stdout=stdout_capture.getvalue(), returncode=code)
     if result.returncode != 0:
         raise AssertionError(
             "CLI command failed:\n"
-            f"command: {[sys.executable, str(cli_entrypoint), *args]}\n"
+            f"command: {['humantext', *args]}\n"
             f"stdout:\n{result.stdout}\n"
-            f"stderr:\n{result.stderr}"
+            f"returncode: {result.returncode}"
         )
     return result
 
