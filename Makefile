@@ -1,4 +1,5 @@
 PYTHON ?= python
+COVERAGE_MIN ?= 90
 
 .PHONY: lint test coverage check version-check release-prep
 
@@ -16,7 +17,7 @@ test:
 coverage:
 	$(PYTHON) -m coverage run -m unittest discover -s tests -p 'test_*.py'
 	$(PYTHON) -m coverage xml
-	$(PYTHON) -m coverage report
+	$(PYTHON) -m coverage report --fail-under=$(COVERAGE_MIN)
 
 check:
 	$(MAKE) lint

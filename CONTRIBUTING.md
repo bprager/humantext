@@ -17,6 +17,7 @@ The repository ships tracked hooks in `.githooks/`:
 
 - `pre-commit` runs `make check`
 - `pre-push` runs `make check` and `make coverage`
+- Coverage gate defaults to `COVERAGE_MIN=90` and can be tuned per run, for example `make coverage COVERAGE_MIN=92`.
 
 ## Ground rules
 
