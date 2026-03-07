@@ -6,8 +6,9 @@ import tempfile
 from pathlib import Path
 import unittest
 
-_THIS_FILE = Path(__file__).resolve()
-ROOT = _THIS_FILE.parents[2] if _THIS_FILE.parent.name == "__pycache__" else _THIS_FILE.parents[1]
+ROOT = Path(__file__).resolve().parents[1]
+if not (ROOT / "src" / "humantext").exists():
+    ROOT = Path.cwd().resolve()
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
@@ -23,8 +24,9 @@ else:
 
 
 def _run_cli(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
+    cli_entrypoint = ROOT / "src" / "humantext" / "cli" / "main.py"
     result = subprocess.run(
-        [sys.executable, "-m", "humantext.cli.main", *args],
+        [sys.executable, str(cli_entrypoint), *args],
         cwd=cwd,
         env=BASE_ENV,
         capture_output=True,
@@ -33,7 +35,7 @@ def _run_cli(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
     if result.returncode != 0:
         raise AssertionError(
             "CLI command failed:\n"
-            f"command: {[sys.executable, '-m', 'humantext.cli.main', *args]}\n"
+            f"command: {[sys.executable, str(cli_entrypoint), *args]}\n"
             f"stdout:\n{result.stdout}\n"
             f"stderr:\n{result.stderr}"
         )
