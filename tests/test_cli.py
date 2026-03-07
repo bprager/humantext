@@ -6,7 +6,8 @@ import tempfile
 from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
+_THIS_FILE = Path(__file__).resolve()
+ROOT = _THIS_FILE.parents[2] if _THIS_FILE.parent.name == "__pycache__" else _THIS_FILE.parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
