@@ -14,19 +14,34 @@ if str(SRC) not in sys.path:
 from humantext.version import get_version
 
 BASE_ENV = os.environ.copy()
-BASE_ENV["PYTHONPATH"] = str(SRC)
+_existing_pythonpath = BASE_ENV.get("PYTHONPATH")
+if _existing_pythonpath:
+    BASE_ENV["PYTHONPATH"] = f"{SRC}{os.pathsep}{_existing_pythonpath}"
+else:
+    BASE_ENV["PYTHONPATH"] = str(SRC)
+
+
+def _run_cli(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        [sys.executable, "-m", "humantext.cli.main", *args],
+        cwd=cwd,
+        env=BASE_ENV,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise AssertionError(
+            "CLI command failed:\n"
+            f"command: {[sys.executable, '-m', 'humantext.cli.main', *args]}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+    return result
 
 
 class CliTests(unittest.TestCase):
     def test_analyze_command_runs(self) -> None:
-        result = subprocess.run(
-            [sys.executable, "-m", "humantext.cli.main", "analyze", "Docs/demo.md"],
-            cwd=ROOT,
-            env=BASE_ENV,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        result = _run_cli("analyze", "Docs/demo.md")
         payload = json.loads(result.stdout)
         self.assertEqual(payload["findings"], [])
 
@@ -34,14 +49,7 @@ class CliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             sample_path = Path(tmpdir) / "sample.txt"
             sample_path.write_text("Experts argue this pivotal moment reflects broader trends.", encoding="utf-8")
-            result = subprocess.run(
-                [sys.executable, "-m", "humantext.cli.main", "suggest", str(sample_path)],
-                cwd=ROOT,
-                env=BASE_ENV,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
+            result = _run_cli("suggest", str(sample_path))
             payload = json.loads(result.stdout)
             self.assertTrue(payload["edit_plan"]["priorities"])
 
@@ -52,49 +60,29 @@ class CliTests(unittest.TestCase):
             (corpus / "a.txt").write_text("We review the record carefully. However, we keep the language direct.", encoding="utf-8")
             (corpus / "b.md").write_text("The memo is concise, but it preserves nuance and context.", encoding="utf-8")
             db_path = Path(tmpdir) / "humantext.db"
-            learned = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "humantext.cli.main",
-                    "learn",
-                    str(corpus),
-                    "--db",
-                    str(db_path),
-                    "--author-id",
-                    "bernd",
-                    "--name",
-                    "Bernd",
-                ],
-                cwd=ROOT,
-                env=BASE_ENV,
-                capture_output=True,
-                text=True,
-                check=True,
+            learned = _run_cli(
+                "learn",
+                str(corpus),
+                "--db",
+                str(db_path),
+                "--author-id",
+                "bernd",
+                "--name",
+                "Bernd",
             )
             profile_id = json.loads(learned.stdout)["profile_id"]
 
             sample_path = Path(tmpdir) / "sample.txt"
             sample_path.write_text("Experts argue this pivotal moment reflects broader trends.", encoding="utf-8")
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "humantext.cli.main",
-                    "analyze",
-                    str(sample_path),
-                    "--genre",
-                    "technical memo",
-                    "--profile-id",
-                    profile_id,
-                    "--db",
-                    str(db_path),
-                ],
-                cwd=ROOT,
-                env=BASE_ENV,
-                capture_output=True,
-                text=True,
-                check=True,
+            result = _run_cli(
+                "analyze",
+                str(sample_path),
+                "--genre",
+                "technical memo",
+                "--profile-id",
+                profile_id,
+                "--db",
+                str(db_path),
             )
             payload = json.loads(result.stdout)
             self.assertEqual(payload["genre"], "technical memo")
@@ -107,14 +95,7 @@ class CliTests(unittest.TestCase):
             db_path = Path(tmpdir) / "humantext.db"
             sample_path = Path(tmpdir) / "sample.txt"
             sample_path.write_text("Experts argue this pivotal moment reflects broader trends.", encoding="utf-8")
-            result = subprocess.run(
-                [sys.executable, "-m", "humantext.cli.main", "ingest", str(sample_path), "--db", str(db_path)],
-                cwd=ROOT,
-                env=BASE_ENV,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
+            result = _run_cli("ingest", str(sample_path), "--db", str(db_path))
             payload = json.loads(result.stdout)
             self.assertIn("document_id", payload)
             self.assertIn("analysis_id", payload)
@@ -127,14 +108,7 @@ class CliTests(unittest.TestCase):
                 "Additionally, it is important to note that this vibrant platform serves as a pivotal moment.",
                 encoding="utf-8",
             )
-            result = subprocess.run(
-                [sys.executable, "-m", "humantext.cli.main", "rewrite", str(sample_path)],
-                cwd=ROOT,
-                env=BASE_ENV,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
+            result = _run_cli("rewrite", str(sample_path))
             payload = json.loads(result.stdout)
             self.assertTrue(payload["change_log"])
             self.assertIn("explanation", payload["change_log"][0])
@@ -146,39 +120,22 @@ class CliTests(unittest.TestCase):
             (corpus / "a.txt").write_text("We review the record carefully. However, we keep the language direct.", encoding="utf-8")
             (corpus / "b.md").write_text("The memo is concise, but it preserves nuance and context.", encoding="utf-8")
             db_path = Path(tmpdir) / "humantext.db"
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "humantext.cli.main",
-                    "learn",
-                    str(corpus),
-                    "--db",
-                    str(db_path),
-                    "--author-id",
-                    "bernd",
-                    "--name",
-                    "Bernd",
-                ],
-                cwd=ROOT,
-                env=BASE_ENV,
-                capture_output=True,
-                text=True,
-                check=True,
+            result = _run_cli(
+                "learn",
+                str(corpus),
+                "--db",
+                str(db_path),
+                "--author-id",
+                "bernd",
+                "--name",
+                "Bernd",
             )
             payload = json.loads(result.stdout)
             self.assertEqual(payload["author_id"], "bernd")
             self.assertTrue(payload["traits"])
 
     def test_version_command_matches_runtime_version(self) -> None:
-        result = subprocess.run(
-            [sys.executable, "-m", "humantext.cli.main", "version"],
-            cwd=ROOT,
-            env=BASE_ENV,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        result = _run_cli("version")
         self.assertEqual(result.stdout.strip(), get_version())
 
 
