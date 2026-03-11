@@ -5,6 +5,7 @@ import sys
 import tempfile
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +49,18 @@ def _run_cli(*args: str, cwd: Path = ROOT) -> _Result:
             f"returncode: {result.returncode}"
         )
     return result
+
+
+class _StubRewriteResult:
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "output_text": "stub",
+            "changes": [],
+            "change_log": [],
+            "critique": [],
+            "warnings": [],
+            "analysis": {"findings": []},
+        }
 
 
 class CliTests(unittest.TestCase):
@@ -124,6 +137,122 @@ class CliTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertTrue(payload["change_log"])
             self.assertIn("explanation", payload["change_log"][0])
+
+    def test_rewrite_command_passes_optional_llm_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sample_path = Path(tmpdir) / "sample.txt"
+            sample_path.write_text("This pivotal moment reflects broader trends.", encoding="utf-8")
+            with patch("humantext.cli.main.rewrite_text", return_value=_StubRewriteResult()) as mocked_rewrite:
+                _run_cli(
+                    "rewrite",
+                    str(sample_path),
+                    "--llm-provider",
+                    "openai_compatible",
+                    "--llm-base-url",
+                    "http://localhost:11434/v1",
+                    "--llm-model",
+                    "demo",
+                )
+            llm_config = mocked_rewrite.call_args.kwargs["llm_config"]
+            self.assertIsNotNone(llm_config)
+            assert llm_config is not None
+            self.assertEqual(llm_config.provider, "openai_compatible")
+            self.assertEqual(llm_config.base_url, "http://localhost:11434/v1")
+            self.assertEqual(llm_config.model, "demo")
+            self.assertTrue(llm_config.supports("critique_rewrite"))
+            self.assertTrue(llm_config.supports("second_pass_rewrite"))
+
+    def test_rewrite_command_loads_llm_defaults_from_dotenv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cwd = Path(tmpdir)
+            sample_path = cwd / "sample.txt"
+            sample_path.write_text("This pivotal moment reflects broader trends.", encoding="utf-8")
+            (cwd / ".env").write_text(
+                "\n".join(
+                    [
+                        "HUMANTEXT_LLM_PROVIDER=openai_compatible",
+                        "HUMANTEXT_LLM_BASE_URL=http://localhost:11434/v1",
+                        "HUMANTEXT_LLM_MODEL=dotenv-model",
+                        "HUMANTEXT_LLM_API_KEY_ENV=HT_TEST_KEY",
+                        "HT_TEST_KEY=dotenv-secret",
+                        "HUMANTEXT_LLM_TIMEOUT=45",
+                        "HUMANTEXT_LLM_TEMPERATURE=0.35",
+                        "HUMANTEXT_LLM_CAPABILITIES=rewrite_spans,critique_rewrite",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {}, clear=True):
+                with patch("humantext.cli.main.rewrite_text", return_value=_StubRewriteResult()) as mocked_rewrite:
+                    _run_cli("rewrite", str(sample_path), cwd=cwd)
+            llm_config = mocked_rewrite.call_args.kwargs["llm_config"]
+            self.assertIsNotNone(llm_config)
+            assert llm_config is not None
+            self.assertEqual(llm_config.provider, "openai_compatible")
+            self.assertEqual(llm_config.base_url, "http://localhost:11434/v1")
+            self.assertEqual(llm_config.model, "dotenv-model")
+            self.assertEqual(llm_config.api_key_env, "HT_TEST_KEY")
+            self.assertEqual(llm_config.api_key, "dotenv-secret")
+            self.assertEqual(llm_config.timeout_seconds, 45)
+            self.assertEqual(llm_config.temperature, 0.35)
+            self.assertTrue(llm_config.supports("rewrite_spans"))
+            self.assertTrue(llm_config.supports("critique_rewrite"))
+            self.assertFalse(llm_config.supports("second_pass_rewrite"))
+
+    def test_eval_command_writes_markdown_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "report.md"
+            result = _run_cli(
+                "eval",
+                "data/datasets/core-v1",
+                "--format",
+                "markdown",
+                "--output",
+                str(output_path),
+            )
+            self.assertTrue(output_path.exists())
+            report = output_path.read_text(encoding="utf-8")
+            self.assertIn("# HumanText Evaluation Report", result.stdout)
+            self.assertIn("`core-v1`", report)
+
+    def test_rewrite_command_cli_values_override_dotenv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cwd = Path(tmpdir)
+            sample_path = cwd / "sample.txt"
+            sample_path.write_text("This pivotal moment reflects broader trends.", encoding="utf-8")
+            (cwd / ".env").write_text(
+                "\n".join(
+                    [
+                        "HUMANTEXT_LLM_PROVIDER=openai_compatible",
+                        "HUMANTEXT_LLM_BASE_URL=http://localhost:11434/v1",
+                        "HUMANTEXT_LLM_MODEL=dotenv-model",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {}, clear=True):
+                with patch("humantext.cli.main.rewrite_text", return_value=_StubRewriteResult()) as mocked_rewrite:
+                    _run_cli(
+                        "rewrite",
+                        str(sample_path),
+                        "--llm-provider",
+                        "override-provider",
+                        "--llm-base-url",
+                        "http://127.0.0.1:9000/v1",
+                        "--llm-model",
+                        "override-model",
+                        "--llm-capabilities",
+                        "rewrite_spans,second_pass_rewrite",
+                        cwd=cwd,
+                    )
+            llm_config = mocked_rewrite.call_args.kwargs["llm_config"]
+            self.assertIsNotNone(llm_config)
+            assert llm_config is not None
+            self.assertEqual(llm_config.provider, "override-provider")
+            self.assertEqual(llm_config.base_url, "http://127.0.0.1:9000/v1")
+            self.assertEqual(llm_config.model, "override-model")
+            self.assertTrue(llm_config.supports("second_pass_rewrite"))
+            self.assertFalse(llm_config.supports("critique_rewrite"))
 
     def test_learn_command_persists_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

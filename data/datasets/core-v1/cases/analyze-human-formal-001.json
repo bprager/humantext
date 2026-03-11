@@ -1,0 +1,9 @@
+{
+  "case_id": "analyze-human-formal-001",
+  "task": "analyze",
+  "genre": "technical memo",
+  "input_text": "The committee reviewed the filing on March 4, 2026 and deferred a decision until additional records arrived.",
+  "expectations": {
+    "max_findings": 0
+  }
+}

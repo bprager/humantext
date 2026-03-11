@@ -10,14 +10,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [0.2.0] - 2026-03-11
+
 ### Changed
 
 - Added profile-aware finding scoring so analysis now adjusts severity by learned traits such as abstraction tolerance, transition frequency, and directness.
 - Threaded persisted voice traits through CLI, MCP, suggestion, and rewrite flows so profile context affects prioritization, not just summary text.
+- Expanded project documentation with a technical runtime overview, an optional LLM integration investigation, and a roadmap that now includes broader detector coverage, span-targeted rewriting, and optional LLM augmentation.
+- Added a shared rewrite-guardrail helper layer so LLM rewrite safety checks and evaluation metrics use the same preservation rules.
+
+### Added
+
+- Added optional LLM scaffolding with an OpenAI-compatible adapter and first-pass span-level rewrite support for flagged sentences.
+- Added CLI and MCP configuration paths for user-defined optional LLM rewrite settings.
+- Added `.env` and environment-based defaults for optional LLM configuration, with explicit CLI and MCP inputs taking precedence.
+- Added deterministic post-checks for LLM rewrites and a second-pass critique stage that can combine residual signal analysis with optional LLM review.
+- Added a critique-driven second LLM rewrite pass for remaining flagged spans after the first rewrite.
+- Added an `eval` package, a `humantext eval` CLI command, markdown report rendering, and a seeded `data/datasets/core-v1` benchmark corpus.
 
 ### Tests
 
 - Added assertions that profile context produces non-zero `profile_adjustment` values in API, CLI, and MCP analysis paths.
+- Added evaluation-runner and CLI coverage for the seeded benchmark dataset and markdown report output.
 
 ## [0.1.3] - 2026-03-06
 

@@ -9,6 +9,25 @@ if str(SRC) not in sys.path:
 
 from humantext.core.analysis import analyze_text
 from humantext.rewrite.engine import rewrite_text
+from humantext.llm.config import LLMConfig
+
+
+class _FakeLLMClient:
+    def rewrite_span(self, *, sentence: str, instructions: str) -> str:
+        if "Additional critique to address" in instructions:
+            return sentence.replace("reflects broader trends", "describes documented changes")
+        return sentence.replace("pivotal moment", "specific milestone")
+
+    def critique_rewrite(self, *, original_text: str, rewritten_text: str, instructions: str) -> list[str]:
+        return ["The rewrite still sounds slightly generic."]
+
+
+class _UnsafeLLMClient:
+    def rewrite_span(self, *, sentence: str, instructions: str) -> str:
+        return "This proves Paris handled it."
+
+    def critique_rewrite(self, *, original_text: str, rewritten_text: str, instructions: str) -> list[str]:
+        return []
 
 
 class AnalysisTests(unittest.TestCase):
@@ -83,6 +102,39 @@ class AnalysisTests(unittest.TestCase):
         self.assertIn("change_log", payload)
         self.assertTrue(payload["change_log"])
         self.assertIn("explanation", payload["change_log"][0])
+
+    def test_rewrite_text_can_use_optional_llm_for_flagged_spans(self) -> None:
+        rewritten = rewrite_text(
+            "This pivotal moment reflects broader trends. Keep this sentence unchanged.",
+            llm_config=LLMConfig(
+                provider="openai_compatible",
+                base_url="http://localhost:9999",
+                model="demo-model",
+            ),
+            llm_client=_FakeLLMClient(),
+        )
+        self.assertIn("specific milestone", rewritten.output_text)
+        self.assertIn("describes documented changes", rewritten.output_text)
+        self.assertIn("Keep this sentence unchanged.", rewritten.output_text)
+        self.assertTrue(any(change.strategy == "llm_rewrite_span" for change in rewritten.changes))
+        self.assertTrue(any(change.strategy == "llm_rewrite_second_pass" for change in rewritten.changes))
+        self.assertTrue(any(item.source == "llm" for item in rewritten.critique))
+        deterministic_items = [item for item in rewritten.critique if item.source == "deterministic" and item.signal_code]
+        self.assertTrue(all(item.span_start is not None for item in deterministic_items))
+
+    def test_rewrite_text_rejects_llm_rewrite_that_drops_guardrails(self) -> None:
+        rewritten = rewrite_text(
+            "This may not mark a shift for ACME 2026 results.",
+            llm_config=LLMConfig(
+                provider="openai_compatible",
+                base_url="http://localhost:9999",
+                model="demo-model",
+            ),
+            llm_client=_UnsafeLLMClient(),
+        )
+        self.assertIn("ACME 2026", rewritten.output_text)
+        self.assertTrue(any("Rejected unsafe LLM rewrite" in warning for warning in rewritten.warnings))
+        self.assertTrue(any(item.source == "deterministic" for item in rewritten.critique))
 
 
 if __name__ == "__main__":

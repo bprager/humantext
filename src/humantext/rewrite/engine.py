@@ -7,7 +7,11 @@ from dataclasses import dataclass
 
 from humantext.core.analysis import analyze_text
 from humantext.core.segmentation import sentence_spans
-from humantext.core.models import AnalysisResult, RewriteChange, RewriteResult
+from humantext.core.models import AnalysisResult, RewriteChange, RewriteCritiqueItem, RewriteResult
+from humantext.llm.client import LLMClient, build_client
+from humantext.llm.config import LLMConfig
+from humantext.llm.tasks.critique_rewrite import critique_rewrite
+from humantext.llm.tasks.rewrite_span import rewrite_flagged_spans
 from humantext.rewrite.diff_explainer import build_change_log
 
 
@@ -95,8 +99,11 @@ def rewrite_text(
     profile_id: str | None = None,
     profile_summary: str | None = None,
     profile_traits: dict[str, str] | None = None,
+    llm_config: LLMConfig | None = None,
+    llm_client: LLMClient | None = None,
 ) -> RewriteResult:
     """Rewrite text using the strategies recommended by the analysis layer."""
+    client: LLMClient | None = None
     analysis = analyze_text(
         text,
         mode=mode,
@@ -107,15 +114,110 @@ def rewrite_text(
     )
     updated = text
     changes: list[RewriteChange] = []
+    llm_warnings: list[str] = []
 
-    for finding in analysis.findings:
-        for strategy in finding.recommended_strategies:
-            updated, strategy_changes = _apply_strategy(updated, strategy, finding.signal_code)
-            changes.extend(strategy_changes)
+    if llm_config and llm_config.supports("rewrite_spans"):
+        client = llm_client or build_client(llm_config)
+        updated, llm_changes, llm_warnings = rewrite_flagged_spans(
+            text,
+            analysis.findings,
+            mode=mode,
+            profile_summary=profile_summary,
+            config=llm_config,
+            client=client,
+        )
+        for change in llm_changes:
+            changes.append(
+                RewriteChange(
+                    signal_code=change["signal_codes"],
+                    strategy="llm_rewrite_span",
+                    before=change["before"],
+                    after=change["after"],
+                    rationale=change["rationale"],
+                )
+            )
+
+    if not changes:
+        for finding in analysis.findings:
+            for strategy in finding.recommended_strategies:
+                updated, strategy_changes = _apply_strategy(updated, strategy, finding.signal_code)
+                changes.extend(strategy_changes)
 
     updated = _polish_sentences(updated)
     updated = _normalize_whitespace(updated)
-    warnings = _build_warnings(analysis, changes)
+    warnings = llm_warnings + _build_warnings(analysis, changes)
+    critique, critique_warnings, analysis_after = critique_rewrite(
+        text,
+        updated,
+        mode=mode,
+        genre=genre,
+        profile_id=profile_id,
+        profile_summary=profile_summary,
+        profile_traits=profile_traits,
+        analysis_before=analysis,
+        llm_config=llm_config,
+        llm_client=client or llm_client,
+    )
+    warnings.extend(critique_warnings)
+    if llm_config and llm_config.supports("second_pass_rewrite") and analysis_after.findings:
+        client = client or llm_client or build_client(llm_config)
+        targeted_keys = {
+            (item.signal_code, item.span_start, item.span_end)
+            for item in critique
+            if item.signal_code is not None and item.span_start is not None and item.span_end is not None
+        }
+        targeted_findings = [
+            finding
+            for finding in analysis_after.findings
+            if (finding.signal_code, finding.span_start, finding.span_end) in targeted_keys
+        ]
+        if targeted_findings:
+            updated, second_pass_changes, second_pass_warnings = rewrite_flagged_spans(
+                updated,
+                targeted_findings,
+                mode=mode,
+                profile_summary=profile_summary,
+                config=llm_config,
+                client=client,
+                critique_items=critique,
+            )
+        else:
+            second_pass_changes = []
+            second_pass_warnings = []
+        warnings.extend(second_pass_warnings)
+        for change in second_pass_changes:
+            changes.append(
+                RewriteChange(
+                    signal_code=change["signal_codes"],
+                    strategy="llm_rewrite_second_pass",
+                    before=change["before"],
+                    after=change["after"],
+                    rationale="Applied second-pass LLM rewrite using critique feedback.",
+                )
+            )
+        updated = _polish_sentences(updated)
+        updated = _normalize_whitespace(updated)
+        critique, critique_warnings, _ = critique_rewrite(
+            text,
+            updated,
+            mode=mode,
+            genre=genre,
+            profile_id=profile_id,
+            profile_summary=profile_summary,
+            profile_traits=profile_traits,
+            analysis_before=analysis,
+            llm_config=llm_config,
+            llm_client=client,
+        )
+        warnings.extend(critique_warnings)
+    if any("Rejected unsafe LLM rewrite" in warning for warning in warnings):
+        critique.append(
+            RewriteCritiqueItem(
+                source="deterministic",
+                severity="medium",
+                message="An unsafe LLM rewrite was rejected and the deterministic fallback path was used.",
+            )
+        )
     change_log = build_change_log(changes)
     return RewriteResult(
         output_text=updated,
@@ -123,6 +225,7 @@ def rewrite_text(
         warnings=warnings,
         analysis=analysis,
         change_log=change_log,
+        critique=critique,
     )
 
 
@@ -187,6 +290,7 @@ def _build_warnings(analysis: AnalysisResult, changes: list[RewriteChange]) -> l
         finding.signal_code
         for finding in analysis.findings
         if not any(strategy in available_strategies for strategy in finding.recommended_strategies)
+        and not any(change.strategy == "llm_rewrite_span" for change in changes)
     ]
     if analysis.findings and not changes:
         return ["Signals were detected, but no automatic strategy rule was available for them yet."]

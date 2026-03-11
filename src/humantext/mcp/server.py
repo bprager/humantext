@@ -9,6 +9,7 @@ from typing import Any, TextIO
 from humantext.core.analysis import analyze_text
 from humantext.core.suggest import suggest_edits
 from humantext.detectors.signals import SIGNALS
+from humantext.llm.config import LLMConfig
 from humantext.rewrite.engine import rewrite_text
 from humantext.storage.database import HumanTextDatabase
 from humantext.version import get_version
@@ -110,6 +111,7 @@ def handle_tool_call(tool_name: str, params: dict[str, Any] | None = None) -> di
 
     if tool_name == "rewrite_text":
         profile_id, profile_summary, profile_traits = _resolve_profile_context(params)
+        llm_config = LLMConfig.from_mapping(params.get("llm"))
         return rewrite_text(
             params["text"],
             mode=mode,
@@ -117,6 +119,7 @@ def handle_tool_call(tool_name: str, params: dict[str, Any] | None = None) -> di
             profile_id=profile_id,
             profile_summary=profile_summary,
             profile_traits=profile_traits,
+            llm_config=llm_config,
         ).to_dict()
 
     if tool_name == "learn_style":

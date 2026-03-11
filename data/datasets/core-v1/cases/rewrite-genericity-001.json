@@ -1,0 +1,20 @@
+{
+  "case_id": "rewrite-genericity-001",
+  "task": "rewrite",
+  "genre": "technical memo",
+  "mode": "minimal",
+  "input_text": "Experts argue this pivotal moment reflects broader trends.",
+  "profile_summary": "Direct, evidence-led prose.",
+  "profile_traits": {
+    "directness": "direct",
+    "tolerance_for_abstraction": "low"
+  },
+  "expectations": {
+    "must_reduce_signal_codes": [
+      "VAGUE_ATTRIBUTION",
+      "GENERIC_SIGNIFICANCE",
+      "BROADER_TRENDS_PADDING"
+    ],
+    "max_edit_distance_ratio": 0.58
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "case_id": "rewrite-source-limit-001",
+  "task": "rewrite",
+  "genre": "research note",
+  "mode": "minimal",
+  "input_text": "There appears to be little information about ACME 2026 results.",
+  "expectations": {
+    "must_reduce_signal_codes": [
+      "SOURCE_SCARCITY_SPECULATION"
+    ],
+    "preserve_tokens": [
+      "ACME",
+      "2026"
+    ],
+    "max_edit_distance_ratio": 0.55
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "analyze-structure-allowlist-001",
+  "task": "analyze",
+  "genre": "meeting notes",
+  "input_text": "- Evidence from invoices and follow-up correspondence.",
+  "expectations": {
+    "max_findings": 1,
+    "allow_signal_codes": [
+      "STRUCTURED_LISTICLE_TONE"
+    ]
+  }
+}

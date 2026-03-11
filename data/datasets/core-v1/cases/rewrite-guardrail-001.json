@@ -1,0 +1,19 @@
+{
+  "case_id": "rewrite-guardrail-001",
+  "task": "rewrite",
+  "genre": "status update",
+  "mode": "minimal",
+  "input_text": "This may not mark a shift for ACME 2026 results.",
+  "expectations": {
+    "must_reduce_signal_codes": [
+      "GENERIC_SIGNIFICANCE"
+    ],
+    "preserve_tokens": [
+      "ACME",
+      "2026"
+    ],
+    "preserve_qualifiers": true,
+    "preserve_negations": true,
+    "max_edit_distance_ratio": 0.45
+  }
+}

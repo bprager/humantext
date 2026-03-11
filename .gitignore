@@ -1,5 +1,8 @@
 # Codex state
 .codex/
+.env
+.env.*
+!.env.example
 
 # Python
 __pycache__/

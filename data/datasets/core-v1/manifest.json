@@ -1,0 +1,5 @@
+{
+  "dataset_id": "core-v1",
+  "version": "0.1",
+  "description": "Core regression and quality benchmark for HumanText."
+}

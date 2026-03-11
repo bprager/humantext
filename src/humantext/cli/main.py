@@ -8,6 +8,8 @@ from pathlib import Path
 
 from humantext.core.analysis import analyze_text
 from humantext.core.suggest import suggest_edits
+from humantext.eval import render_markdown_report, run_evaluation
+from humantext.llm.config import LLMConfig
 from humantext.mcp import serve_stdio
 from humantext.rewrite.engine import rewrite_text
 from humantext.storage.database import HumanTextDatabase
@@ -16,6 +18,13 @@ from humantext.version import get_version
 
 def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _emit_output(text: str, output_path: Path | None = None) -> None:
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(text, encoding="utf-8")
+    print(text)
 
 
 def _load_profile_context(db_path: Path, profile_id: str | None) -> tuple[str | None, dict[str, str] | None]:
@@ -50,6 +59,32 @@ def _analysis_kwargs(parser: argparse.ArgumentParser, args: argparse.Namespace) 
     }
 
 
+def _llm_kwargs(args: argparse.Namespace) -> dict[str, object | None]:
+    capabilities = getattr(args, "llm_capabilities", "rewrite_spans,critique_rewrite,second_pass_rewrite")
+    config = LLMConfig.from_mapping(
+        {
+            "provider": getattr(args, "llm_provider", None),
+            "base_url": getattr(args, "llm_base_url", None),
+            "model": getattr(args, "llm_model", None),
+            "api_key_env": getattr(args, "llm_api_key_env", None),
+            "timeout_seconds": getattr(args, "llm_timeout", None),
+            "temperature": getattr(args, "llm_temperature", None),
+            "enabled_capabilities": capabilities,
+        }
+    )
+    return {"llm_config": config}
+
+
+def _add_llm_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--llm-provider")
+    parser.add_argument("--llm-base-url")
+    parser.add_argument("--llm-model")
+    parser.add_argument("--llm-api-key-env")
+    parser.add_argument("--llm-timeout", type=int)
+    parser.add_argument("--llm-temperature", type=float)
+    parser.add_argument("--llm-capabilities")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="humantext", description="HumanText CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -71,12 +106,19 @@ def _build_parser() -> argparse.ArgumentParser:
     rewrite_parser.add_argument("--genre")
     rewrite_parser.add_argument("--profile-id")
     rewrite_parser.add_argument("--db", type=Path, default=Path("humantext.db"))
+    _add_llm_arguments(rewrite_parser)
 
     ingest_parser = subparsers.add_parser("ingest", help="Ingest and analyze a document into SQLite")
     ingest_parser.add_argument("file", type=Path)
     ingest_parser.add_argument("--genre")
     ingest_parser.add_argument("--profile-id")
     ingest_parser.add_argument("--db", type=Path, default=Path("humantext.db"))
+
+    eval_parser = subparsers.add_parser("eval", help="Run a benchmark dataset")
+    eval_parser.add_argument("path", type=Path)
+    eval_parser.add_argument("--format", choices=("json", "markdown"), default="json")
+    eval_parser.add_argument("--output", type=Path)
+    _add_llm_arguments(eval_parser)
 
     subparsers.add_parser("version", help="Print the current HumanText version")
     subparsers.add_parser("mcp-serve", help="Serve HumanText tools over newline-delimited JSON on stdio")
@@ -95,15 +137,17 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "analyze":
-        print(json.dumps(analyze_text(_read_text(args.file), **_analysis_kwargs(parser, args)).to_dict(), indent=2))
+        _emit_output(json.dumps(analyze_text(_read_text(args.file), **_analysis_kwargs(parser, args)).to_dict(), indent=2))
         return 0
 
     if args.command == "suggest":
-        print(json.dumps(suggest_edits(_read_text(args.file), **_analysis_kwargs(parser, args)).to_dict(), indent=2))
+        _emit_output(json.dumps(suggest_edits(_read_text(args.file), **_analysis_kwargs(parser, args)).to_dict(), indent=2))
         return 0
 
     if args.command == "rewrite":
-        print(json.dumps(rewrite_text(_read_text(args.file), **_analysis_kwargs(parser, args)).to_dict(), indent=2))
+        rewrite_kwargs = _analysis_kwargs(parser, args)
+        rewrite_kwargs.update(_llm_kwargs(args))
+        _emit_output(json.dumps(rewrite_text(_read_text(args.file), **rewrite_kwargs).to_dict(), indent=2))
         return 0
 
     if args.command == "ingest":
@@ -119,11 +163,17 @@ def main() -> int:
             )
         finally:
             database.close()
-        print(json.dumps({"document_id": document_id, "analysis_id": analysis_id, "summary": analysis.summary}, indent=2))
+        _emit_output(json.dumps({"document_id": document_id, "analysis_id": analysis_id, "summary": analysis.summary}, indent=2))
+        return 0
+
+    if args.command == "eval":
+        result = run_evaluation(str(args.path), **_llm_kwargs(args))
+        rendered = render_markdown_report(result) if args.format == "markdown" else json.dumps(result.to_dict(), indent=2)
+        _emit_output(rendered, args.output)
         return 0
 
     if args.command == "version":
-        print(get_version())
+        _emit_output(get_version())
         return 0
 
     if args.command == "mcp-serve":
@@ -146,7 +196,7 @@ def main() -> int:
             profile = database.learn_style(author_id=args.author_id, documents=documents, profile_name=args.name)
         finally:
             database.close()
-        print(json.dumps(profile.to_dict(), indent=2))
+        _emit_output(json.dumps(profile.to_dict(), indent=2))
         return 0
 
     parser.error(f"unknown command: {args.command}")

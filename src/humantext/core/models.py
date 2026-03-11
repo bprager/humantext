@@ -130,18 +130,34 @@ class RewriteChange:
 
 
 @dataclass(slots=True)
+class RewriteCritiqueItem:
+    source: str
+    severity: str
+    message: str
+    signal_code: str | None = None
+    span_start: int | None = None
+    span_end: int | None = None
+    span_text: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
 class RewriteResult:
     output_text: str
     changes: list[RewriteChange]
     warnings: list[str]
     analysis: AnalysisResult
     change_log: list[dict[str, str]] = field(default_factory=list)
+    critique: list[RewriteCritiqueItem] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "output_text": self.output_text,
             "changes": [change.to_dict() for change in self.changes],
             "change_log": self.change_log,
+            "critique": [item.to_dict() for item in self.critique],
             "warnings": self.warnings,
             "analysis": self.analysis.to_dict(),
         }

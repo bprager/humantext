@@ -1,0 +1,16 @@
+{
+  "case_id": "rewrite-promotional-001",
+  "task": "rewrite",
+  "genre": "product brief",
+  "mode": "minimal",
+  "input_text": "Additionally, this vibrant platform serves as a pivotal moment.",
+  "expectations": {
+    "must_reduce_signal_codes": [
+      "CANNED_TRANSITION_ADDITIONALLY",
+      "PROMOTIONAL_PUFFERY",
+      "COPULA_AVOIDANCE",
+      "GENERIC_SIGNIFICANCE"
+    ],
+    "max_edit_distance_ratio": 0.58
+  }
+}
