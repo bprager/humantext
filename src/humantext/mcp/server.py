@@ -10,6 +10,7 @@ from humantext.core.analysis import analyze_text
 from humantext.core.suggest import suggest_edits
 from humantext.detectors.signals import SIGNALS
 from humantext.llm.config import LLMConfig
+from humantext.rewrite.arena import review_rewrites
 from humantext.rewrite.engine import rewrite_text
 from humantext.storage.database import HumanTextDatabase
 from humantext.version import get_version
@@ -64,6 +65,11 @@ def list_tools() -> list[dict[str, Any]]:
             "input": ["text", "genre?", "profile_id?", "mode?"],
         },
         {
+            "name": "review_rewrites",
+            "description": "Compare multiple rewrite arena candidates and recommend one.",
+            "input": ["text", "genre?", "profile_id?", "mode?", "llm?"],
+        },
+        {
             "name": "learn_style",
             "description": "Learn and persist a voice profile from trusted documents.",
             "input": ["author_id", "documents[]", "name?", "db_path?"],
@@ -113,6 +119,19 @@ def handle_tool_call(tool_name: str, params: dict[str, Any] | None = None) -> di
         profile_id, profile_summary, profile_traits = _resolve_profile_context(params)
         llm_config = LLMConfig.from_mapping(params.get("llm"))
         return rewrite_text(
+            params["text"],
+            mode=mode,
+            genre=genre,
+            profile_id=profile_id,
+            profile_summary=profile_summary,
+            profile_traits=profile_traits,
+            llm_config=llm_config,
+        ).to_dict()
+
+    if tool_name == "review_rewrites":
+        profile_id, profile_summary, profile_traits = _resolve_profile_context(params)
+        llm_config = LLMConfig.from_mapping(params.get("llm"))
+        return review_rewrites(
             params["text"],
             mode=mode,
             genre=genre,

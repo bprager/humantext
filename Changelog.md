@@ -12,6 +12,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No unreleased changes._
 
+## [1.0.0] - 2026-03-14
+
+### Changed
+
+- Replaced document-wide deterministic rewrite substitutions with offset-aware local patch planning so rewrite diffs now point to exact edited spans instead of whole-document snapshots.
+- Added a Rewrite Arena layer that compares multiple constrained candidates for the same draft and recommends one using signal reduction, preservation, edit distance, and voice-fit scoring.
+- Updated the top-level documentation to position HumanText around reviewable candidate comparison, not just single-pass rewriting.
+
+### Added
+
+- Added `humantext review` and MCP `review_rewrites` so the Rewrite Arena is available from both local CLI and agent/editor workflows.
+- Added first-class arena result models and scorecards for candidate generation, recommendation, and reviewer-facing tradeoff summaries.
+- Added dedicated design and product documentation for both the span rewrite planner and the Rewrite Arena.
+
+### Tests
+
+- Added unit, CLI, and MCP coverage for local span rewrite metadata and Rewrite Arena candidate generation and recommendation behavior.
+
 ## [0.2.0] - 2026-03-11
 
 ### Changed

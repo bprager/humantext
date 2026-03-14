@@ -103,6 +103,14 @@ class AnalysisTests(unittest.TestCase):
         self.assertTrue(payload["change_log"])
         self.assertIn("explanation", payload["change_log"][0])
 
+    def test_rewrite_text_changes_are_local_spans(self) -> None:
+        text = "Additionally, it is important to note that this vibrant platform serves as a pivotal moment."
+        rewritten = rewrite_text(text)
+        self.assertTrue(all(change.before != text for change in rewritten.changes))
+        self.assertTrue(all(change.span_start is not None for change in rewritten.changes))
+        self.assertTrue(all(change.span_end is not None for change in rewritten.changes))
+        self.assertTrue(any(change.before.strip().lower() == "additionally," for change in rewritten.changes))
+
     def test_rewrite_text_can_use_optional_llm_for_flagged_spans(self) -> None:
         rewritten = rewrite_text(
             "This pivotal moment reflects broader trends. Keep this sentence unchanged.",

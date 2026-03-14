@@ -27,6 +27,7 @@ HumanText is for reviewers, editors, and teams that use AI to draft but still ne
 
 - Flags generic, inflated, or mechanical phrasing with explanation-backed findings
 - Suggests the smallest useful edits before resorting to a full rewrite
+- Compares competing rewrite candidates in a Rewrite Arena instead of pretending there is one correct answer
 - Preserves facts, terminology, and legitimate nuance
 - Learns from trusted samples instead of flattening every voice into one style
 - Works locally through CLI, Python, SQLite, and MCP interfaces
@@ -40,6 +41,7 @@ pip install -e .
 
 humantext analyze Docs/demo.md
 humantext suggest Docs/demo.md
+humantext review Docs/demo.md
 humantext rewrite Docs/demo.md
 humantext eval data/datasets/core-v1
 
@@ -83,6 +85,20 @@ humantext eval data/datasets/core-v1
 humantext eval data/datasets/core-v1 --format markdown --output reports/core-v1.md
 ```
 
+## Rewrite Arena
+
+HumanText now includes a Rewrite Arena via `humantext review`. It generates several constrained rewrite candidates for the same draft, scores them on signal reduction, preservation, edit distance, and voice fit, and recommends one.
+
+The current lanes are:
+
+- `Minimal Cut`
+- `Balanced Draft`
+- `Hard Sweep`
+- `Profile Match` when a voice profile is loaded
+- `LLM Challenger` when an optional LLM configuration is available
+
+The arena is useful when you want tradeoffs instead of a single opaque rewrite. It gives reviewers a clearer editorial choice and creates a path toward future preference learning.
+
 ## Optional LLM Augmentation
 
 HumanText keeps deterministic analysis as the default path. If you provide an optional LLM configuration, `rewrite` can use a user-defined model to rewrite only the flagged sentence spans while preserving the deterministic fallback path.
@@ -93,7 +109,7 @@ LLM settings can come from CLI flags, environment variables, or a local `.env` f
 
 ## Status
 
-The current repository already includes baseline signal detection, ranked edit suggestions, rewrite strategies, voice-profile learning, SQLite persistence, CLI commands, an MCP adapter, and a seeded evaluation harness for regression testing and benchmark runs. The next step is deeper profile-aware and span-aware editing behavior.
+The current repository now includes a Rewrite Arena that compares multiple constrained rewrite candidates from the same draft and recommends one. The next step is turning reviewer choices in that arena into persisted preference learning.
 
 ## Inspiration
 

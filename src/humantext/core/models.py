@@ -124,9 +124,86 @@ class RewriteChange:
     before: str
     after: str
     rationale: str
+    span_start: int | None = None
+    span_end: int | None = None
+    scope: str = "span"
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(slots=True)
+class PlannedEdit:
+    signal_code: str
+    strategy: str
+    start_offset: int
+    end_offset: int
+    before: str
+    after: str
+    rationale: str
+    effective_score: float
+    scope: str = "finding"
+    status: str = "planned"
+    rejection_reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class RewritePlan:
+    planned_edits: list[PlannedEdit]
+    applied_edits: list[PlannedEdit]
+    rejected_edits: list[PlannedEdit]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "planned_edits": [edit.to_dict() for edit in self.planned_edits],
+            "applied_edits": [edit.to_dict() for edit in self.applied_edits],
+            "rejected_edits": [edit.to_dict() for edit in self.rejected_edits],
+        }
+
+
+@dataclass(slots=True)
+class ArenaCandidate:
+    candidate_id: str
+    label: str
+    rationale: str
+    output_text: str
+    metrics: dict[str, Any]
+    changes: list[RewriteChange] = field(default_factory=list)
+    change_log: list[dict[str, str]] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "candidate_id": self.candidate_id,
+            "label": self.label,
+            "rationale": self.rationale,
+            "output_text": self.output_text,
+            "metrics": self.metrics,
+            "changes": [change.to_dict() for change in self.changes],
+            "change_log": self.change_log,
+            "warnings": self.warnings,
+        }
+
+
+@dataclass(slots=True)
+class ArenaResult:
+    summary: str
+    recommendation: str
+    recommendation_rationale: str
+    analysis: AnalysisResult
+    candidates: list[ArenaCandidate]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "summary": self.summary,
+            "recommendation": self.recommendation,
+            "recommendation_rationale": self.recommendation_rationale,
+            "analysis": self.analysis.to_dict(),
+            "candidates": [candidate.to_dict() for candidate in self.candidates],
+        }
 
 
 @dataclass(slots=True)

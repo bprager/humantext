@@ -63,6 +63,17 @@ class _StubRewriteResult:
         }
 
 
+class _StubArenaResult:
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "summary": "stub",
+            "recommendation": "balanced",
+            "recommendation_rationale": "stub rationale",
+            "analysis": {"findings": []},
+            "candidates": [],
+        }
+
+
 class CliTests(unittest.TestCase):
     def test_analyze_command_runs(self) -> None:
         result = _run_cli("analyze", "Docs/demo.md")
@@ -138,6 +149,15 @@ class CliTests(unittest.TestCase):
             self.assertTrue(payload["change_log"])
             self.assertIn("explanation", payload["change_log"][0])
 
+    def test_review_command_returns_candidates_and_recommendation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sample_path = Path(tmpdir) / "sample.txt"
+            sample_path.write_text("Experts argue this pivotal moment reflects broader trends.", encoding="utf-8")
+            result = _run_cli("review", str(sample_path))
+            payload = json.loads(result.stdout)
+            self.assertTrue(payload["candidates"])
+            self.assertIn(payload["recommendation"], {candidate["candidate_id"] for candidate in payload["candidates"]})
+
     def test_rewrite_command_passes_optional_llm_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             sample_path = Path(tmpdir) / "sample.txt"
@@ -161,6 +181,28 @@ class CliTests(unittest.TestCase):
             self.assertEqual(llm_config.model, "demo")
             self.assertTrue(llm_config.supports("critique_rewrite"))
             self.assertTrue(llm_config.supports("second_pass_rewrite"))
+
+    def test_review_command_passes_optional_llm_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sample_path = Path(tmpdir) / "sample.txt"
+            sample_path.write_text("This pivotal moment reflects broader trends.", encoding="utf-8")
+            with patch("humantext.cli.main.review_rewrites", return_value=_StubArenaResult()) as mocked_review:
+                _run_cli(
+                    "review",
+                    str(sample_path),
+                    "--llm-provider",
+                    "openai_compatible",
+                    "--llm-base-url",
+                    "http://localhost:11434/v1",
+                    "--llm-model",
+                    "demo",
+                )
+            llm_config = mocked_review.call_args.kwargs["llm_config"]
+            self.assertIsNotNone(llm_config)
+            assert llm_config is not None
+            self.assertEqual(llm_config.provider, "openai_compatible")
+            self.assertEqual(llm_config.base_url, "http://localhost:11434/v1")
+            self.assertEqual(llm_config.model, "demo")
 
     def test_rewrite_command_loads_llm_defaults_from_dotenv(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

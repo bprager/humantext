@@ -8,11 +8,11 @@ from humantext.core.models import RewriteChange
 def build_change_log(changes: list[RewriteChange], *, limit: int = 160) -> list[dict[str, str]]:
     """Return concise, reviewable explanations for rewrite changes."""
     entries: list[dict[str, str]] = []
-    seen: set[tuple[str, str, str, str, str]] = set()
+    seen: set[tuple[str, str, str, str, str, int | None, int | None]] = set()
     for change in changes:
         before = _clip(change.before, limit=limit)
         after = _clip(change.after, limit=limit)
-        key = (change.signal_code, change.strategy, change.rationale, before, after)
+        key = (change.signal_code, change.strategy, change.rationale, before, after, change.span_start, change.span_end)
         if key in seen:
             continue
         seen.add(key)

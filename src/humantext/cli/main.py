@@ -11,6 +11,7 @@ from humantext.core.suggest import suggest_edits
 from humantext.eval import render_markdown_report, run_evaluation
 from humantext.llm.config import LLMConfig
 from humantext.mcp import serve_stdio
+from humantext.rewrite.arena import review_rewrites
 from humantext.rewrite.engine import rewrite_text
 from humantext.storage.database import HumanTextDatabase
 from humantext.version import get_version
@@ -101,6 +102,13 @@ def _build_parser() -> argparse.ArgumentParser:
     suggest_parser.add_argument("--profile-id")
     suggest_parser.add_argument("--db", type=Path, default=Path("humantext.db"))
 
+    review_parser = subparsers.add_parser("review", help="Compare rewrite arena candidates for a document")
+    review_parser.add_argument("file", type=Path)
+    review_parser.add_argument("--genre")
+    review_parser.add_argument("--profile-id")
+    review_parser.add_argument("--db", type=Path, default=Path("humantext.db"))
+    _add_llm_arguments(review_parser)
+
     rewrite_parser = subparsers.add_parser("rewrite", help="Rewrite a document")
     rewrite_parser.add_argument("file", type=Path)
     rewrite_parser.add_argument("--genre")
@@ -142,6 +150,12 @@ def main() -> int:
 
     if args.command == "suggest":
         _emit_output(json.dumps(suggest_edits(_read_text(args.file), **_analysis_kwargs(parser, args)).to_dict(), indent=2))
+        return 0
+
+    if args.command == "review":
+        review_kwargs = _analysis_kwargs(parser, args)
+        review_kwargs.update(_llm_kwargs(args))
+        _emit_output(json.dumps(review_rewrites(_read_text(args.file), **review_kwargs).to_dict(), indent=2))
         return 0
 
     if args.command == "rewrite":

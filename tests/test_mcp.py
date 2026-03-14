@@ -22,6 +22,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(metadata["name"], "humantext-mcp")
         self.assertEqual(metadata["version"], get_version())
         self.assertIn("rewrite_text", metadata["tools"])
+        self.assertIn("review_rewrites", metadata["tools"])
 
     def test_handle_tool_call_analyze_text(self) -> None:
         result = handle_tool_call("analyze_text", {"text": "Experts argue this pivotal moment reflects broader trends."})
@@ -39,6 +40,14 @@ class McpTests(unittest.TestCase):
         )
         self.assertTrue(result["change_log"])
         self.assertIn("explanation", result["change_log"][0])
+
+    def test_handle_tool_call_review_rewrites_returns_candidates(self) -> None:
+        result = handle_tool_call(
+            "review_rewrites",
+            {"text": "Experts argue this pivotal moment reflects broader trends."},
+        )
+        self.assertTrue(result["candidates"])
+        self.assertIn(result["recommendation"], {candidate["candidate_id"] for candidate in result["candidates"]})
 
     def test_handle_tool_call_rewrite_text_accepts_llm_config(self) -> None:
         with patch("humantext.mcp.server.rewrite_text") as mocked_rewrite:
